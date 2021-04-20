@@ -4,9 +4,7 @@ from conans import ConanFile, CMake, tools
 
 class OpenVDBTestConan(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
-    generators = "cmake_find_package", \
-        "virtualenv", \
-        "virtualrunenv"
+    generators = "cmake_find_package"
 
     def build(self):
         cmake = CMake(self, generator='Ninja')

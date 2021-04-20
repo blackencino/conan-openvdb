@@ -22,8 +22,7 @@ class OpenVDBConan(ConanFile):
         "shared": False,
         "*:fPIC": True
         }
-    generators = "cmake", "cmake_find_package", "cmake_paths", "virtualenv", \
-        "virtualrunenv"
+    generators = "cmake", "cmake_find_package", "cmake_paths"
     exports_sources = ["CMakeLists.txt", "patches/*"]
 
     requires = (
@@ -52,9 +51,9 @@ class OpenVDBConan(ConanFile):
             raise ConanInvalidConfiguration("OpenVDB only supports shared=False at this time")
 
     def requirements(self):
-        self.options["tbb"].tbbmalloc = True
-        self.options["tbb"].tbbproxy = True
-        self.options["tbb"].shared = True
+        #self.options["tbb"].tbbmalloc = False
+        #self.options["tbb"].tbbproxy = False
+        self.options["tbb"].shared = False
         self.options["openexr"].shared = False
 
     def source(self):
@@ -98,7 +97,7 @@ class OpenVDBConan(ConanFile):
         self._cmake.definitions["USE_PKGCONFIG"] = False
         self._cmake.definitions["OPENVDB_CORE_SHARED"] = False
         self._cmake.definitions["OPENVDB_CORE_STATIC"] = True
-        self._cmake.definitions["CONCURRENT_MALLOC"] = "Tbbmalloc"
+        self._cmake.definitions["CONCURRENT_MALLOC"] = "None"
 
         self._cmake.configure(build_folder=self._build_subfolder)
         return self._cmake
