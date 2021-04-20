@@ -1,0 +1,8 @@
+sources:
+  "7.1.0":
+    url: "https://github.com/AcademySoftwareFoundation/openvdb/archive/refs/tags/v7.1.0.tar.gz"
+    sha256: "0c3588c1ca6e647610738654ec2c6aaf41a203fd797f609fbeab1c9f7c3dc116"
+
+patches:
+  "7.1.0":
+    patches: "openvdb-7.1.0.patch"

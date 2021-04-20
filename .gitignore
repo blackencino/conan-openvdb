@@ -30,3 +30,12 @@
 *.exe
 *.out
 *.app
+
+# Tmp directory here
+tmp/*
+
+# tarballs
+tarballs/*
+
+# BUild directories
+*/test_package/build/*

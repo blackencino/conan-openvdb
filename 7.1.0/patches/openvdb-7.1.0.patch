@@ -1,0 +1,2921 @@
+diff -Naur a/cmake/FindBlosc.cmake b/cmake/FindBlosc.cmake
+--- a/cmake/FindBlosc.cmake	2020-08-13 12:15:58.000000000 -0700
++++ b/cmake/FindBlosc.cmake	1969-12-31 16:00:00.000000000 -0800
+@@ -1,260 +0,0 @@
+-# Copyright Contributors to the OpenVDB Project
+-# SPDX-License-Identifier: MPL-2.0
+-#
+-#[=======================================================================[.rst:
+-
+-FindBlosc
+----------
+-
+-Find Blosc include dirs and libraries
+-
+-Use this module by invoking find_package with the form::
+-
+-  find_package(Blosc
+-    [version] [EXACT]      # Minimum or EXACT version e.g. 1.5.0
+-    [REQUIRED]             # Fail with error if Blosc is not found
+-    )
+-
+-IMPORTED Targets
+-^^^^^^^^^^^^^^^^
+-
+-``Blosc::blosc``
+-  This module defines IMPORTED target Blosc::Blosc, if Blosc has been found.
+-
+-Result Variables
+-^^^^^^^^^^^^^^^^
+-
+-This will define the following variables:
+-
+-``Blosc_FOUND``
+-  True if the system has the Blosc library.
+-``Blosc_VERSION``
+-  The version of the Blosc library which was found.
+-``Blosc_INCLUDE_DIRS``
+-  Include directories needed to use Blosc.
+-``Blosc_LIBRARIES``
+-  Libraries needed to link to Blosc.
+-``Blosc_LIBRARY_DIRS``
+-  Blosc library directories.
+-
+-Cache Variables
+-^^^^^^^^^^^^^^^
+-
+-The following cache variables may also be set:
+-
+-``Blosc_INCLUDE_DIR``
+-  The directory containing ``blosc.h``.
+-``Blosc_LIBRARY``
+-  The path to the Blosc library.
+-
+-Hints
+-^^^^^
+-
+-Instead of explicitly setting the cache variables, the following variables
+-may be provided to tell this module where to look.
+-
+-``Blosc_ROOT``
+-  Preferred installation prefix.
+-``BLOSC_INCLUDEDIR``
+-  Preferred include directory e.g. <prefix>/include
+-``BLOSC_LIBRARYDIR``
+-  Preferred library directory e.g. <prefix>/lib
+-``SYSTEM_LIBRARY_PATHS``
+-  Global list of library paths intended to be searched by and find_xxx call
+-``BLOSC_USE_STATIC_LIBS``
+-  Only search for static blosc libraries
+-``BLOSC_USE_EXTERNAL_SOURCES``
+-  Set to ON if Blosc has been built using external sources for LZ4, snappy,
+-  zlib and zstd. Default is OFF.
+-``DISABLE_CMAKE_SEARCH_PATHS``
+-  Disable CMakes default search paths for find_xxx calls in this module
+-
+-#]=======================================================================]
+-
+-cmake_minimum_required(VERSION 3.3)
+-include(GNUInstallDirs)
+-
+-# Monitoring <PackageName>_ROOT variables
+-if(POLICY CMP0074)
+-  cmake_policy(SET CMP0074 NEW)
+-endif()
+-
+-mark_as_advanced(
+-  Blosc_INCLUDE_DIR
+-  Blosc_LIBRARY
+-)
+-
+-set(_FIND_BLOSC_ADDITIONAL_OPTIONS "")
+-if(DISABLE_CMAKE_SEARCH_PATHS)
+-  set(_FIND_BLOSC_ADDITIONAL_OPTIONS NO_DEFAULT_PATH)
+-endif()
+-
+-# Set _BLOSC_ROOT based on a user provided root var. Xxx_ROOT and ENV{Xxx_ROOT}
+-# are prioritised over the legacy capitalized XXX_ROOT variables for matching
+-# CMake 3.12 behaviour
+-# @todo  deprecate -D and ENV BLOSC_ROOT from CMake 3.12
+-if(Blosc_ROOT)
+-  set(_BLOSC_ROOT ${Blosc_ROOT})
+-elseif(DEFINED ENV{Blosc_ROOT})
+-  set(_BLOSC_ROOT $ENV{Blosc_ROOT})
+-elseif(BLOSC_ROOT)
+-  set(_BLOSC_ROOT ${BLOSC_ROOT})
+-elseif(DEFINED ENV{BLOSC_ROOT})
+-  set(_BLOSC_ROOT $ENV{BLOSC_ROOT})
+-endif()
+-
+-# Additionally try and use pkconfig to find blosc
+-if(USE_PKGCONFIG)
+-  if(NOT DEFINED PKG_CONFIG_FOUND)
+-    find_package(PkgConfig)
+-  endif()
+-  pkg_check_modules(PC_Blosc QUIET blosc)
+-endif()
+-
+-# ------------------------------------------------------------------------
+-#  Search for blosc include DIR
+-# ------------------------------------------------------------------------
+-
+-set(_BLOSC_INCLUDE_SEARCH_DIRS "")
+-list(APPEND _BLOSC_INCLUDE_SEARCH_DIRS
+-  ${BLOSC_INCLUDEDIR}
+-  ${_BLOSC_ROOT}
+-  ${PC_Blosc_INCLUDE_DIRS}
+-  ${SYSTEM_LIBRARY_PATHS}
+-)
+-
+-# Look for a standard blosc header file.
+-find_path(Blosc_INCLUDE_DIR blosc.h
+-  ${_FIND_BLOSC_ADDITIONAL_OPTIONS}
+-  PATHS ${_BLOSC_INCLUDE_SEARCH_DIRS}
+-  PATH_SUFFIXES ${CMAKE_INSTALL_INCLUDEDIR} include
+-)
+-
+-if(EXISTS "${Blosc_INCLUDE_DIR}/blosc.h")
+-  file(STRINGS "${Blosc_INCLUDE_DIR}/blosc.h"
+-    _blosc_version_major_string REGEX "#define BLOSC_VERSION_MAJOR +[0-9]+ "
+-  )
+-  string(REGEX REPLACE "#define BLOSC_VERSION_MAJOR +([0-9]+).*$" "\\1"
+-    _blosc_version_major_string "${_blosc_version_major_string}"
+-  )
+-  string(STRIP "${_blosc_version_major_string}" Blosc_VERSION_MAJOR)
+-
+-  file(STRINGS "${Blosc_INCLUDE_DIR}/blosc.h"
+-     _blosc_version_minor_string REGEX "#define BLOSC_VERSION_MINOR +[0-9]+ "
+-  )
+-  string(REGEX REPLACE "#define BLOSC_VERSION_MINOR +([0-9]+).*$" "\\1"
+-    _blosc_version_minor_string "${_blosc_version_minor_string}"
+-  )
+-  string(STRIP "${_blosc_version_minor_string}" Blosc_VERSION_MINOR)
+-
+-  file(STRINGS "${Blosc_INCLUDE_DIR}/blosc.h"
+-     _blosc_version_release_string REGEX "#define BLOSC_VERSION_RELEASE +[0-9]+ "
+-  )
+-  string(REGEX REPLACE "#define BLOSC_VERSION_RELEASE +([0-9]+).*$" "\\1"
+-    _blosc_version_release_string "${_blosc_version_release_string}"
+-  )
+-  string(STRIP "${_blosc_version_release_string}" Blosc_VERSION_RELEASE)
+-
+-  unset(_blosc_version_major_string)
+-  unset(_blosc_version_minor_string)
+-  unset(_blosc_version_release_string)
+-
+-  set(Blosc_VERSION ${Blosc_VERSION_MAJOR}.${Blosc_VERSION_MINOR}.${Blosc_VERSION_RELEASE})
+-endif()
+-
+-# ------------------------------------------------------------------------
+-#  Search for blosc lib DIR
+-# ------------------------------------------------------------------------
+-
+-set(_BLOSC_LIBRARYDIR_SEARCH_DIRS "")
+-list(APPEND _BLOSC_LIBRARYDIR_SEARCH_DIRS
+-  ${BLOSC_LIBRARYDIR}
+-  ${_BLOSC_ROOT}
+-  ${PC_Blosc_LIBRARY_DIRS}
+-  ${SYSTEM_LIBRARY_PATHS}
+-)
+-
+-# Library suffix handling
+-
+-set(_BLOSC_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
+-
+-if(WIN32)
+-  if(BLOSC_USE_STATIC_LIBS)
+-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".lib")
+-  endif()
+-else()
+-  if(BLOSC_USE_STATIC_LIBS)
+-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+-  endif()
+-endif()
+-
+-# libblosc is the name of the blosc static lib on windows
+-
+-find_library(Blosc_LIBRARY blosc libblosc
+-  ${_FIND_BLOSC_ADDITIONAL_OPTIONS}
+-  PATHS ${_BLOSC_LIBRARYDIR_SEARCH_DIRS}
+-  PATH_SUFFIXES ${CMAKE_INSTALL_LIBDIR} lib64 lib
+-)
+-
+-# Reset library suffix
+-
+-set(CMAKE_FIND_LIBRARY_SUFFIXES ${_BLOSC_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES})
+-unset(_BLOSC_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES)
+-
+-# ------------------------------------------------------------------------
+-#  Cache and set Blosc_FOUND
+-# ------------------------------------------------------------------------
+-
+-include(FindPackageHandleStandardArgs)
+-find_package_handle_standard_args(Blosc
+-  FOUND_VAR Blosc_FOUND
+-  REQUIRED_VARS
+-    Blosc_LIBRARY
+-    Blosc_INCLUDE_DIR
+-  VERSION_VAR Blosc_VERSION
+-)
+-
+-if(Blosc_FOUND)
+-  # Configure lib type. If XXX_USE_STATIC_LIBS, we always assume a static
+-  # lib is in use. If win32, we can't mark the import .libs as shared, so
+-  # these are always marked as UNKNOWN. Otherwise, infer from extension.
+-  set(BLOSC_LIB_TYPE UNKNOWN)
+-  if(BLOSC_USE_STATIC_LIBS)
+-    set(BLOSC_LIB_TYPE STATIC)
+-  elseif(UNIX)
+-    get_filename_component(_BLOSC_EXT ${Blosc_LIBRARY} EXT)
+-    if(_BLOSC_EXT STREQUAL ".a")
+-      set(BLOSC_LIB_TYPE STATIC)
+-    elseif(_BLOSC_EXT STREQUAL ".so" OR
+-           _BLOSC_EXT STREQUAL ".dylib")
+-      set(BLOSC_LIB_TYPE SHARED)
+-    endif()
+-  endif()
+-
+-  set(Blosc_LIBRARIES ${Blosc_LIBRARY})
+-  set(Blosc_INCLUDE_DIRS ${Blosc_INCLUDE_DIR})
+-
+-  get_filename_component(Blosc_LIBRARY_DIRS ${Blosc_LIBRARY} DIRECTORY)
+-
+-  if(NOT TARGET Blosc::blosc)
+-    add_library(Blosc::blosc ${BLOSC_LIB_TYPE} IMPORTED)
+-    set_target_properties(Blosc::blosc PROPERTIES
+-      IMPORTED_LOCATION "${Blosc_LIBRARIES}"
+-      INTERFACE_COMPILE_OPTIONS "${PC_Blosc_CFLAGS_OTHER}"
+-      INTERFACE_INCLUDE_DIRECTORIES "${Blosc_INCLUDE_DIRS}"
+-    )
+-
+-    # Blosc may optionally be compiled with external sources for
+-    # lz4, snappy, zlib and zstd. Add them as interface libs if
+-    # requested (there doesn't seem to be a way to figure this
+-    # out automatically).
+-    if(BLOSC_USE_EXTERNAL_SOURCES)
+-      set_target_properties(Blosc::blosc PROPERTIES
+-        INTERFACE_LINK_DIRECTORIES "${Blosc_LIBRARY_DIRS}"
+-        INTERFACE_LINK_LIBRARIES "lz4;snappy;zlib;zstd"
+-      )
+-    endif()
+-  endif()
+-elseif(Blosc_FIND_REQUIRED)
+-  message(FATAL_ERROR "Unable to find Blosc")
+-endif()
+diff -Naur a/cmake/FindCppUnit.cmake b/cmake/FindCppUnit.cmake
+--- a/cmake/FindCppUnit.cmake	2020-08-13 12:15:58.000000000 -0700
++++ b/cmake/FindCppUnit.cmake	1969-12-31 16:00:00.000000000 -0800
+@@ -1,229 +0,0 @@
+-# Copyright Contributors to the OpenVDB Project
+-# SPDX-License-Identifier: MPL-2.0
+-#
+-#[=======================================================================[.rst:
+-
+-FindCppUnit
+------------
+-
+-Find CppUnit include dirs and libraries
+-
+-Use this module by invoking find_package with the form::
+-
+-  find_package(CppUnit
+-    [version] [EXACT]      # Minimum or EXACT version
+-    [REQUIRED]             # Fail with error if CppUnit is not found
+-    )
+-
+-
+-IMPORTED Targets
+-^^^^^^^^^^^^^^^^
+-
+-``CppUnit::cppunit``
+-  This module defines IMPORTED target CppUnit::cppunit, if CppUnit has been
+-  found.
+-
+-Result Variables
+-^^^^^^^^^^^^^^^^
+-
+-This will define the following variables:
+-
+-``CppUnit_FOUND``
+-  True if the system has the CppUnit library.
+-``CppUnit_VERSION``
+-  The version of the CppUnit library which was found.
+-``CppUnit_INCLUDE_DIRS``
+-  Include directories needed to use CppUnit.
+-``CppUnit_LIBRARIES``
+-  Libraries needed to link to CppUnit.
+-``CppUnit_LIBRARY_DIRS``
+-  CppUnit library directories.
+-
+-Cache Variables
+-^^^^^^^^^^^^^^^
+-
+-The following cache variables may also be set:
+-
+-``CppUnit_INCLUDE_DIR``
+-  The directory containing ``cppunit/Portability.h``.
+-``CppUnit_LIBRARY``
+-  The path to the CppUnit library.
+-
+-Hints
+-^^^^^
+-
+-Instead of explicitly setting the cache variables, the following variables
+-may be provided to tell this module where to look.
+-
+-``CppUnit_ROOT``
+-  Preferred installation prefix.
+-``CPPUNIT_INCLUDEDIR``
+-  Preferred include directory e.g. <prefix>/include
+-``CPPUNIT_LIBRARYDIR``
+-  Preferred library directory e.g. <prefix>/lib
+-``SYSTEM_LIBRARY_PATHS``
+-  Global list of library paths intended to be searched by and find_xxx call
+-``CPPUNIT_USE_STATIC_LIBS``
+-  Only search for static cppunit libraries
+-``DISABLE_CMAKE_SEARCH_PATHS``
+-  Disable CMakes default search paths for find_xxx calls in this module
+-
+-#]=======================================================================]
+-
+-cmake_minimum_required(VERSION 3.3)
+-include(GNUInstallDirs)
+-
+-# Monitoring <PackageName>_ROOT variables
+-if(POLICY CMP0074)
+-  cmake_policy(SET CMP0074 NEW)
+-endif()
+-
+-mark_as_advanced(
+-  CppUnit_INCLUDE_DIR
+-  CppUnit_LIBRARY
+-)
+-
+-set(_FIND_CPPUNIT_ADDITIONAL_OPTIONS "")
+-if(DISABLE_CMAKE_SEARCH_PATHS)
+-  set(_FIND_CPPUNIT_ADDITIONAL_OPTIONS NO_DEFAULT_PATH)
+-endif()
+-
+-# Set _CPPUNIT_ROOT based on a user provided root var. Xxx_ROOT and ENV{Xxx_ROOT}
+-# are prioritised over the legacy capitalized XXX_ROOT variables for matching
+-# CMake 3.12 behaviour
+-# @todo  deprecate -D and ENV CPPUNIT_ROOT from CMake 3.12
+-if(CppUnit_ROOT)
+-  set(_CPPUNIT_ROOT ${CppUnit_ROOT})
+-elseif(DEFINED ENV{CppUnit_ROOT})
+-  set(_CPPUNIT_ROOT $ENV{CppUnit_ROOT})
+-elseif(CPPUNIT_ROOT)
+-  set(_CPPUNIT_ROOT ${CPPUNIT_ROOT})
+-elseif(DEFINED ENV{CPPUNIT_ROOT})
+-  set(_CPPUNIT_ROOT $ENV{CPPUNIT_ROOT})
+-endif()
+-
+-# Additionally try and use pkconfig to find cppunit
+-if(USE_PKGCONFIG)
+-  if(NOT DEFINED PKG_CONFIG_FOUND)
+-    find_package(PkgConfig)
+-  endif()
+-  pkg_check_modules(PC_CppUnit QUIET cppunit)
+-endif()
+-
+-# ------------------------------------------------------------------------
+-#  Search for CppUnit include DIR
+-# ------------------------------------------------------------------------
+-
+-set(_CPPUNIT_INCLUDE_SEARCH_DIRS "")
+-list(APPEND _CPPUNIT_INCLUDE_SEARCH_DIRS
+-  ${CPPUNIT_INCLUDEDIR}
+-  ${_CPPUNIT_ROOT}
+-  ${PC_CppUnit_INCLUDEDIR}
+-  ${SYSTEM_LIBRARY_PATHS}
+-)
+-
+-# Look for a standard cppunit header file.
+-find_path(CppUnit_INCLUDE_DIR cppunit/Portability.h
+-  ${_FIND_CPPUNIT_ADDITIONAL_OPTIONS}
+-  PATHS ${_CPPUNIT_INCLUDE_SEARCH_DIRS}
+-  PATH_SUFFIXES ${CMAKE_INSTALL_INCLUDEDIR} include
+-)
+-
+-if(EXISTS "${CppUnit_INCLUDE_DIR}/cppunit/Portability.h")
+-  file(STRINGS "${CppUnit_INCLUDE_DIR}/cppunit/Portability.h"
+-    _cppunit_version_string REGEX "#define CPPUNIT_VERSION "
+-  )
+-  string(REGEX REPLACE "#define CPPUNIT_VERSION +\"(.+)\".*$" "\\1"
+-    _cppunit_version_string "${_cppunit_version_string}"
+-  )
+-  string(STRIP "${_cppunit_version_string}" CppUnit_VERSION)
+-  unset(_cppunit_version_string )
+-endif()
+-
+-# ------------------------------------------------------------------------
+-#  Search for CppUnit lib DIR
+-# ------------------------------------------------------------------------
+-
+-set(_CPPUNIT_LIBRARYDIR_SEARCH_DIRS "")
+-list(APPEND _CPPUNIT_LIBRARYDIR_SEARCH_DIRS
+-  ${CPPUNIT_LIBRARYDIR}
+-  ${_CPPUNIT_ROOT}
+-  ${PC_CppUnit_LIBDIR}
+-  ${SYSTEM_LIBRARY_PATHS}
+-)
+-
+-# Library suffix handling
+-
+-set(_CPPUNIT_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
+-
+-if(WIN32)
+-  if(CPPUNIT_USE_STATIC_LIBS)
+-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".lib")
+-  else()
+-    list(APPEND CMAKE_FIND_LIBRARY_SUFFIXES "_dll.lib")
+-  endif()
+-else()
+-  if(CPPUNIT_USE_STATIC_LIBS)
+-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+-  endif()
+-endif()
+-
+-# Build suffix directories
+-
+-find_library(CppUnit_LIBRARY cppunit
+-  ${_FIND_CPPUNIT_ADDITIONAL_OPTIONS}
+-  PATHS ${_CPPUNIT_LIBRARYDIR_SEARCH_DIRS}
+-  PATH_SUFFIXES ${CMAKE_INSTALL_LIBDIR} lib64 lib
+-)
+-
+-# Reset library suffix
+-
+-set(CMAKE_FIND_LIBRARY_SUFFIXES ${_CPPUNIT_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES})
+-unset(_CPPUNIT_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES)
+-
+-# ------------------------------------------------------------------------
+-#  Cache and set CppUnit_FOUND
+-# ------------------------------------------------------------------------
+-
+-include(FindPackageHandleStandardArgs)
+-find_package_handle_standard_args(CppUnit
+-  FOUND_VAR CppUnit_FOUND
+-  REQUIRED_VARS
+-    CppUnit_LIBRARY
+-    CppUnit_INCLUDE_DIR
+-  VERSION_VAR CppUnit_VERSION
+-)
+-
+-if(CppUnit_FOUND)
+-  # Configure lib type. If XXX_USE_STATIC_LIBS, we always assume a static
+-  # lib is in use. If win32, we can't mark the import .libs as shared, so
+-  # these are always marked as UNKNOWN. Otherwise, infer from extension.
+-  set(CPPUNIT_LIB_TYPE UNKNOWN)
+-  if(CPPUNIT_USE_STATIC_LIBS)
+-    set(CPPUNIT_LIB_TYPE STATIC)
+-  elseif(UNIX)
+-    get_filename_component(_CPPUNIT_EXT ${CppUnit_LIBRARY} EXT)
+-    if(_CPPUNIT_EXT STREQUAL ".a")
+-      set(CPPUNIT_LIB_TYPE STATIC)
+-    elseif(_CPPUNIT_EXT STREQUAL ".so" OR
+-           _CPPUNIT_EXT STREQUAL ".dylib")
+-      set(CPPUNIT_LIB_TYPE SHARED)
+-    endif()
+-  endif()
+-
+-  set(CppUnit_LIBRARIES ${CppUnit_LIBRARY})
+-  set(CppUnit_INCLUDE_DIRS ${CppUnit_INCLUDE_DIR})
+-
+-  get_filename_component(CppUnit_LIBRARY_DIRS ${CppUnit_LIBRARY} DIRECTORY)
+-
+-  if(NOT TARGET CppUnit::cppunit)
+-    add_library(CppUnit::cppunit ${CPPUNIT_LIB_TYPE} IMPORTED)
+-    set_target_properties(CppUnit::cppunit PROPERTIES
+-      IMPORTED_LOCATION "${CppUnit_LIBRARIES}"
+-      INTERFACE_COMPILE_OPTIONS "${PC_CppUnit_CFLAGS_OTHER}"
+-      INTERFACE_INCLUDE_DIRECTORIES "${CppUnit_INCLUDE_DIRS}"
+-    )
+-  endif()
+-elseif(CppUnit_FIND_REQUIRED)
+-  message(FATAL_ERROR "Unable to find CppUnit")
+-endif()
+diff -Naur a/cmake/FindIlmBase.cmake b/cmake/FindIlmBase.cmake
+--- a/cmake/FindIlmBase.cmake	2020-08-13 12:15:58.000000000 -0700
++++ b/cmake/FindIlmBase.cmake	1969-12-31 16:00:00.000000000 -0800
+@@ -1,344 +0,0 @@
+-# Copyright Contributors to the OpenVDB Project
+-# SPDX-License-Identifier: MPL-2.0
+-#
+-#[=======================================================================[.rst:
+-
+-FindIlmBase
+------------
+-
+-Find IlmBase include dirs and libraries
+-
+-Use this module by invoking find_package with the form::
+-
+-  find_package(IlmBase
+-    [version] [EXACT]      # Minimum or EXACT version
+-    [REQUIRED]             # Fail with error if IlmBase is not found
+-    [COMPONENTS <libs>...] # IlmBase libraries by their canonical name
+-                           # e.g. "Half" for "libHalf"
+-    )
+-
+-IMPORTED Targets
+-^^^^^^^^^^^^^^^^
+-
+-``IlmBase::Half``
+-  The Half library target.
+-``IlmBase::Iex``
+-  The Iex library target.
+-``IlmBase::IexMath``
+-  The IexMath library target.
+-``IlmBase::IlmThread``
+-  The IlmThread library target.
+-``IlmBase::Imath``
+-  The Imath library target.
+-
+-Result Variables
+-^^^^^^^^^^^^^^^^
+-
+-This will define the following variables:
+-
+-``IlmBase_FOUND``
+-  True if the system has the IlmBase library.
+-``IlmBase_VERSION``
+-  The version of the IlmBase library which was found.
+-``IlmBase_INCLUDE_DIRS``
+-  Include directories needed to use IlmBase.
+-``IlmBase_LIBRARIES``
+-  Libraries needed to link to IlmBase.
+-``IlmBase_LIBRARY_DIRS``
+-  IlmBase library directories.
+-``IlmBase_{COMPONENT}_FOUND``
+-  True if the system has the named IlmBase component.
+-
+-Cache Variables
+-^^^^^^^^^^^^^^^
+-
+-The following cache variables may also be set:
+-
+-``IlmBase_INCLUDE_DIR``
+-  The directory containing ``IlmBase/config-auto.h``.
+-``IlmBase_{COMPONENT}_LIBRARY``
+-  Individual component libraries for IlmBase
+-
+-Hints
+-^^^^^
+-
+-Instead of explicitly setting the cache variables, the following variables
+-may be provided to tell this module where to look.
+-
+-``IlmBase_ROOT``
+-  Preferred installation prefix.
+-``ILMBASE_INCLUDEDIR``
+-  Preferred include directory e.g. <prefix>/include
+-``ILMBASE_LIBRARYDIR``
+-  Preferred library directory e.g. <prefix>/lib
+-``SYSTEM_LIBRARY_PATHS``
+-  Global list of library paths intended to be searched by and find_xxx call
+-``ILMBASE_USE_STATIC_LIBS``
+-  Only search for static ilmbase libraries
+-``DISABLE_CMAKE_SEARCH_PATHS``
+-  Disable CMakes default search paths for find_xxx calls in this module
+-
+-#]=======================================================================]
+-
+-cmake_minimum_required(VERSION 3.3)
+-include(GNUInstallDirs)
+-
+-# Monitoring <PackageName>_ROOT variables
+-if(POLICY CMP0074)
+-  cmake_policy(SET CMP0074 NEW)
+-endif()
+-
+-mark_as_advanced(
+-  IlmBase_INCLUDE_DIR
+-  IlmBase_LIBRARY
+-)
+-
+-set(_FIND_ILMBASE_ADDITIONAL_OPTIONS "")
+-if(DISABLE_CMAKE_SEARCH_PATHS)
+-  set(_FIND_ILMBASE_ADDITIONAL_OPTIONS NO_DEFAULT_PATH)
+-endif()
+-
+-set(_ILMBASE_COMPONENT_LIST
+-  Half
+-  Iex
+-  IexMath
+-  IlmThread
+-  Imath
+-)
+-
+-if(IlmBase_FIND_COMPONENTS)
+-  set(ILMBASE_COMPONENTS_PROVIDED TRUE)
+-  set(_IGNORED_COMPONENTS "")
+-  foreach(COMPONENT ${IlmBase_FIND_COMPONENTS})
+-    if(NOT ${COMPONENT} IN_LIST _ILMBASE_COMPONENT_LIST)
+-      list(APPEND _IGNORED_COMPONENTS ${COMPONENT})
+-    endif()
+-  endforeach()
+-
+-  if(_IGNORED_COMPONENTS)
+-    message(STATUS "Ignoring unknown components of IlmBase:")
+-    foreach(COMPONENT ${_IGNORED_COMPONENTS})
+-      message(STATUS "  ${COMPONENT}")
+-    endforeach()
+-    list(REMOVE_ITEM IlmBase_FIND_COMPONENTS ${_IGNORED_COMPONENTS})
+-  endif()
+-else()
+-  set(ILMBASE_COMPONENTS_PROVIDED FALSE)
+-  set(IlmBase_FIND_COMPONENTS ${_ILMBASE_COMPONENT_LIST})
+-endif()
+-
+-# Set _ILMBASE_ROOT based on a user provided root var. Xxx_ROOT and ENV{Xxx_ROOT}
+-# are prioritised over the legacy capitalized XXX_ROOT variables for matching
+-# CMake 3.12 behaviour
+-# @todo  deprecate -D and ENV ILMBASE_ROOT from CMake 3.12
+-if(IlmBase_ROOT)
+-  set(_ILMBASE_ROOT ${IlmBase_ROOT})
+-elseif(DEFINED ENV{IlmBase_ROOT})
+-  set(_ILMBASE_ROOT $ENV{IlmBase_ROOT})
+-elseif(ILMBASE_ROOT)
+-  set(_ILMBASE_ROOT ${ILMBASE_ROOT})
+-elseif(DEFINED ENV{ILMBASE_ROOT})
+-  set(_ILMBASE_ROOT $ENV{ILMBASE_ROOT})
+-endif()
+-
+-# Additionally try and use pkconfig to find IlmBase
+-if(USE_PKGCONFIG)
+-  if(NOT DEFINED PKG_CONFIG_FOUND)
+-    find_package(PkgConfig)
+-  endif()
+-  pkg_check_modules(PC_IlmBase QUIET IlmBase)
+-endif()
+-
+-# ------------------------------------------------------------------------
+-#  Search for IlmBase include DIR
+-# ------------------------------------------------------------------------
+-
+-set(_ILMBASE_INCLUDE_SEARCH_DIRS "")
+-list(APPEND _ILMBASE_INCLUDE_SEARCH_DIRS
+-  ${ILMBASE_INCLUDEDIR}
+-  ${_ILMBASE_ROOT}
+-  ${PC_IlmBase_INCLUDEDIR}
+-  ${SYSTEM_LIBRARY_PATHS}
+-)
+-
+-# Look for a standard IlmBase header file.
+-find_path(IlmBase_INCLUDE_DIR IlmBaseConfig.h
+-  ${_FIND_ILMBASE_ADDITIONAL_OPTIONS}
+-  PATHS ${_ILMBASE_INCLUDE_SEARCH_DIRS}
+-  PATH_SUFFIXES ${CMAKE_INSTALL_INCLUDEDIR}/OpenEXR include/OpenEXR OpenEXR
+-)
+-
+-if(EXISTS "${IlmBase_INCLUDE_DIR}/IlmBaseConfig.h")
+-  # Get the ILMBASE version information from the config header
+-  file(STRINGS "${IlmBase_INCLUDE_DIR}/IlmBaseConfig.h"
+-    _ilmbase_version_major_string REGEX "#define ILMBASE_VERSION_MAJOR "
+-  )
+-  string(REGEX REPLACE "#define ILMBASE_VERSION_MAJOR" ""
+-    _ilmbase_version_major_string "${_ilmbase_version_major_string}"
+-  )
+-  string(STRIP "${_ilmbase_version_major_string}" IlmBase_VERSION_MAJOR)
+-
+-  file(STRINGS "${IlmBase_INCLUDE_DIR}/IlmBaseConfig.h"
+-     _ilmbase_version_minor_string REGEX "#define ILMBASE_VERSION_MINOR "
+-  )
+-  string(REGEX REPLACE "#define ILMBASE_VERSION_MINOR" ""
+-    _ilmbase_version_minor_string "${_ilmbase_version_minor_string}"
+-  )
+-  string(STRIP "${_ilmbase_version_minor_string}" IlmBase_VERSION_MINOR)
+-
+-  unset(_ilmbase_version_major_string)
+-  unset(_ilmbase_version_minor_string)
+-
+-  set(IlmBase_VERSION ${IlmBase_VERSION_MAJOR}.${IlmBase_VERSION_MINOR})
+-endif()
+-
+-# ------------------------------------------------------------------------
+-#  Search for ILMBASE lib DIR
+-# ------------------------------------------------------------------------
+-
+-set(_ILMBASE_LIBRARYDIR_SEARCH_DIRS "")
+-
+-# Append to _ILMBASE_LIBRARYDIR_SEARCH_DIRS in priority order
+-
+-list(APPEND _ILMBASE_LIBRARYDIR_SEARCH_DIRS
+-  ${ILMBASE_LIBRARYDIR}
+-  ${_ILMBASE_ROOT}
+-  ${PC_IlmBase_LIBDIR}
+-  ${SYSTEM_LIBRARY_PATHS}
+-)
+-
+-# Library suffix handling
+-
+-set(_ILMBASE_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
+-set(_IlmBase_Version_Suffix "-${IlmBase_VERSION_MAJOR}_${IlmBase_VERSION_MINOR}")
+-
+-if(WIN32)
+-  if(ILMBASE_USE_STATIC_LIBS)
+-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".lib")
+-  endif()
+-  list(APPEND CMAKE_FIND_LIBRARY_SUFFIXES "${_IlmBase_Version_Suffix}.lib")
+-else()
+-  if(ILMBASE_USE_STATIC_LIBS)
+-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+-  else()
+-    if(APPLE)
+-      list(APPEND CMAKE_FIND_LIBRARY_SUFFIXES "${_IlmBase_Version_Suffix}.dylib")
+-    else()
+-      list(APPEND CMAKE_FIND_LIBRARY_SUFFIXES "${_IlmBase_Version_Suffix}.so")
+-    endif()
+-  endif()
+-  list(APPEND CMAKE_FIND_LIBRARY_SUFFIXES "${_IlmBase_Version_Suffix}.a")
+-endif()
+-
+-unset(_IlmBase_Version_Suffix)
+-
+-set(IlmBase_LIB_COMPONENTS "")
+-
+-foreach(COMPONENT ${IlmBase_FIND_COMPONENTS})
+-  find_library(IlmBase_${COMPONENT}_LIBRARY ${COMPONENT}
+-    ${_FIND_ILMBASE_ADDITIONAL_OPTIONS}
+-    PATHS ${_ILMBASE_LIBRARYDIR_SEARCH_DIRS}
+-    PATH_SUFFIXES ${CMAKE_INSTALL_LIBDIR} lib64 lib
+-  )
+-  list(APPEND IlmBase_LIB_COMPONENTS ${IlmBase_${COMPONENT}_LIBRARY})
+-
+-  if(IlmBase_${COMPONENT}_LIBRARY)
+-    set(IlmBase_${COMPONENT}_FOUND TRUE)
+-  else()
+-    set(IlmBase_${COMPONENT}_FOUND FALSE)
+-  endif()
+-endforeach()
+-
+-# Reset library suffix
+-
+-set(CMAKE_FIND_LIBRARY_SUFFIXES ${_ILMBASE_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES})
+-unset(_ILMBASE_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES)
+-
+-# ------------------------------------------------------------------------
+-#  Cache and set ILMBASE_FOUND
+-# ------------------------------------------------------------------------
+-
+-include(FindPackageHandleStandardArgs)
+-find_package_handle_standard_args(IlmBase
+-  FOUND_VAR IlmBase_FOUND
+-  REQUIRED_VARS
+-    IlmBase_INCLUDE_DIR
+-    IlmBase_LIB_COMPONENTS
+-  VERSION_VAR IlmBase_VERSION
+-  HANDLE_COMPONENTS
+-)
+-
+-if(IlmBase_FOUND)
+-  set(IlmBase_LIBRARIES ${IlmBase_LIB_COMPONENTS})
+-
+-  # We have to add both include and include/OpenEXR to the include
+-  # path in case OpenEXR and IlmBase are installed separately.
+-  #
+-  # Make sure we get the absolute path to avoid issues where
+-  # /usr/include/OpenEXR/../ is picked up and passed to gcc from cmake
+-  # which won't correctly compute /usr/include as an implicit system
+-  # dir if the path is relative:
+-  #
+-  # https://github.com/AcademySoftwareFoundation/openvdb/issues/632
+-  # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=70129
+-
+-  set(_IlmBase_Parent_Dir "")
+-  get_filename_component(_IlmBase_Parent_Dir
+-    ${IlmBase_INCLUDE_DIR}/../ ABSOLUTE)
+-
+-  set(IlmBase_INCLUDE_DIRS)
+-  list(APPEND IlmBase_INCLUDE_DIRS
+-    ${_IlmBase_Parent_Dir}
+-    ${IlmBase_INCLUDE_DIR}
+-  )
+-  unset(_IlmBase_Parent_Dir)
+-
+-  set(IlmBase_LIBRARY_DIRS "")
+-  foreach(LIB ${IlmBase_LIB_COMPONENTS})
+-    get_filename_component(_ILMBASE_LIBDIR ${LIB} DIRECTORY)
+-    list(APPEND IlmBase_LIBRARY_DIRS ${_ILMBASE_LIBDIR})
+-  endforeach()
+-  list(REMOVE_DUPLICATES IlmBase_LIBRARY_DIRS)
+-
+-  # Configure imported targets
+-
+-  foreach(COMPONENT ${IlmBase_FIND_COMPONENTS})
+-    # Configure lib type. If XXX_USE_STATIC_LIBS, we always assume a static
+-    # lib is in use. If win32, we can't mark the import .libs as shared, so
+-    # these are always marked as UNKNOWN. Otherwise, infer from extension.
+-    set(ILMBASE_${COMPONENT}_LIB_TYPE UNKNOWN)
+-    if(ILMBASE_USE_STATIC_LIBS)
+-      set(ILMBASE_${COMPONENT}_LIB_TYPE STATIC)
+-    elseif(UNIX)
+-      get_filename_component(_ILMBASE_${COMPONENT}_EXT ${IlmBase_${COMPONENT}_LIBRARY} EXT)
+-      if(${_ILMBASE_${COMPONENT}_EXT} STREQUAL ".a")
+-        set(ILMBASE_${COMPONENT}_LIB_TYPE STATIC)
+-      elseif(${_ILMBASE_${COMPONENT}_EXT} STREQUAL ".so" OR
+-             ${_ILMBASE_${COMPONENT}_EXT} STREQUAL ".dylib")
+-        set(ILMBASE_${COMPONENT}_LIB_TYPE SHARED)
+-      endif()
+-    endif()
+-
+-    set(IlmBase_${COMPONENT}_DEFINITIONS)
+-
+-    # Add the OPENEXR_DLL define if the library is not static on WIN32
+-    if(WIN32)
+-      if(NOT ILMBASE_${COMPONENT}_LIB_TYPE STREQUAL STATIC)
+-        list(APPEND IlmBase_${COMPONENT}_DEFINITIONS OPENEXR_DLL)
+-      endif()
+-    endif()
+-
+-    if(NOT TARGET IlmBase::${COMPONENT})
+-      add_library(IlmBase::${COMPONENT} ${ILMBASE_${COMPONENT}_LIB_TYPE} IMPORTED)
+-      set_target_properties(IlmBase::${COMPONENT} PROPERTIES
+-        IMPORTED_LOCATION "${IlmBase_${COMPONENT}_LIBRARY}"
+-        INTERFACE_COMPILE_OPTIONS "${PC_IlmBase_CFLAGS_OTHER}"
+-        INTERFACE_COMPILE_DEFINITIONS "${IlmBase_${COMPONENT}_DEFINITIONS}"
+-        INTERFACE_INCLUDE_DIRECTORIES "${IlmBase_INCLUDE_DIRS}"
+-      )
+-    endif()
+-  endforeach()
+-
+-elseif(IlmBase_FIND_REQUIRED)
+-  message(FATAL_ERROR "Unable to find IlmBase")
+-endif()
+diff -Naur a/cmake/FindJemalloc.cmake b/cmake/FindJemalloc.cmake
+--- a/cmake/FindJemalloc.cmake	2020-08-13 12:15:58.000000000 -0700
++++ b/cmake/FindJemalloc.cmake	1969-12-31 16:00:00.000000000 -0800
+@@ -1,194 +0,0 @@
+-# Copyright Contributors to the OpenVDB Project
+-# SPDX-License-Identifier: MPL-2.0
+-#
+-#[=======================================================================[.rst:
+-
+-FindJemalloc
+------------
+-
+-Find Jemalloc include dirs and libraries
+-
+-Use this module by invoking find_package with the form::
+-
+-  find_package(Jemalloc
+-    [version] [EXACT]      # Minimum or EXACT version
+-    [REQUIRED]             # Fail with error if Jemalloc is not found
+-    )
+-
+-
+-IMPORTED Targets
+-^^^^^^^^^^^^^^^^
+-
+-``Jemalloc::jemalloc``
+-  This module defines IMPORTED target Jemalloc::jemalloc, if Jemalloc has been
+-  found.
+-
+-Result Variables
+-^^^^^^^^^^^^^^^^
+-
+-This will define the following variables:
+-
+-``Jemalloc_FOUND``
+-  True if the system has the Jemalloc library.
+-``Jemalloc_VERSION``
+-  The version of the Jemalloc library which was found.
+-``Jemalloc_LIBRARIES``
+-  Libraries needed to link to Jemalloc.
+-``Jemalloc_LIBRARY_DIRS``
+-  Jemalloc library directories.
+-
+-Cache Variables
+-^^^^^^^^^^^^^^^
+-
+-The following cache variables may also be set:
+-
+-``Jemalloc_LIBRARY``
+-  The path to the Jemalloc library.
+-
+-Hints
+-^^^^^
+-
+-Instead of explicitly setting the cache variables, the following variables
+-may be provided to tell this module where to look.
+-
+-``Jemalloc_ROOT``
+-  Preferred installation prefix.
+-``JEMALLOC_LIBRARYDIR``
+-  Preferred library directory e.g. <prefix>/lib
+-``SYSTEM_LIBRARY_PATHS``
+-  Global list of library paths intended to be searched by and find_xxx call
+-``JEMALLOC_USE_STATIC_LIBS``
+-  Only search for static jemalloc libraries
+-``DISABLE_CMAKE_SEARCH_PATHS``
+-  Disable CMakes default search paths for find_xxx calls in this module
+-
+-#]=======================================================================]
+-
+-cmake_minimum_required(VERSION 3.3)
+-include(GNUInstallDirs)
+-
+-# Monitoring <PackageName>_ROOT variables
+-if(POLICY CMP0074)
+-  cmake_policy(SET CMP0074 NEW)
+-endif()
+-
+-mark_as_advanced(
+-  Jemalloc_LIBRARY
+-)
+-
+-set(_FIND_JEMALLOC_ADDITIONAL_OPTIONS "")
+-if(DISABLE_CMAKE_SEARCH_PATHS)
+-  set(_FIND_JEMALLOC_ADDITIONAL_OPTIONS NO_DEFAULT_PATH)
+-endif()
+-
+-# Set _JEMALLOC_ROOT based on a user provided root var. Xxx_ROOT and ENV{Xxx_ROOT}
+-# are prioritised over the legacy capitalized XXX_ROOT variables for matching
+-# CMake 3.12 behaviour
+-# @todo  deprecate -D and ENV JEMALLOC_ROOT from CMake 3.12
+-if(Jemalloc_ROOT)
+-  set(_JEMALLOC_ROOT ${Jemalloc_ROOT})
+-elseif(DEFINED ENV{Jemalloc_ROOT})
+-  set(_JEMALLOC_ROOT $ENV{Jemalloc_ROOT})
+-elseif(JEMALLOC_ROOT)
+-  set(_JEMALLOC_ROOT ${JEMALLOC_ROOT})
+-elseif(DEFINED ENV{JEMALLOC_ROOT})
+-  set(_JEMALLOC_ROOT $ENV{JEMALLOC_ROOT})
+-endif()
+-
+-# Additionally try and use pkconfig to find jemalloc
+-
+-if(NOT DEFINED PKG_CONFIG_FOUND)
+-  find_package(PkgConfig)
+-endif()
+-pkg_check_modules(PC_Jemalloc QUIET jemalloc)
+-
+-# ------------------------------------------------------------------------
+-#  Search for Jemalloc lib DIR
+-# ------------------------------------------------------------------------
+-
+-set(_JEMALLOC_LIBRARYDIR_SEARCH_DIRS "")
+-list(APPEND _JEMALLOC_LIBRARYDIR_SEARCH_DIRS
+-  ${JEMALLOC_LIBRARYDIR}
+-  ${_JEMALLOC_ROOT}
+-  ${PC_Jemalloc_LIBDIR}
+-  ${SYSTEM_LIBRARY_PATHS}
+-)
+-
+-# Library suffix handling
+-
+-set(_JEMALLOC_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
+-
+-if(WIN32)
+-  if(JEMALLOC_USE_STATIC_LIBS)
+-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".lib")
+-  else()
+-    list(APPEND CMAKE_FIND_LIBRARY_SUFFIXES "_dll.lib")
+-  endif()
+-else()
+-  if(JEMALLOC_USE_STATIC_LIBS)
+-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+-  endif()
+-endif()
+-
+-# Build suffix directories
+-
+-set(JEMALLOC_PATH_SUFFIXES
+-  ${CMAKE_INSTALL_LIBDIR}
+-  lib64
+-  lib
+-)
+-
+-find_library(Jemalloc_LIBRARY jemalloc
+-  ${_FIND_JEMALLOC_ADDITIONAL_OPTIONS}
+-  PATHS ${_JEMALLOC_LIBRARYDIR_SEARCH_DIRS}
+-  PATH_SUFFIXES ${JEMALLOC_PATH_SUFFIXES}
+-)
+-
+-# Reset library suffix
+-
+-set(CMAKE_FIND_LIBRARY_SUFFIXES ${_JEMALLOC_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES})
+-unset(_JEMALLOC_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES)
+-
+-# ------------------------------------------------------------------------
+-#  Cache and set Jemalloc_FOUND
+-# ------------------------------------------------------------------------
+-
+-include(FindPackageHandleStandardArgs)
+-find_package_handle_standard_args(Jemalloc
+-  FOUND_VAR Jemalloc_FOUND
+-  REQUIRED_VARS
+-    Jemalloc_LIBRARY
+-  VERSION_VAR Jemalloc_VERSION
+-)
+-
+-if(Jemalloc_FOUND)
+-  # Configure lib type. If XXX_USE_STATIC_LIBS, we always assume a static
+-  # lib is in use. If win32, we can't mark the import .libs as shared, so
+-  # these are always marked as UNKNOWN. Otherwise, infer from extension.
+-  set(JEMALLOC_LIB_TYPE UNKNOWN)
+-  if(JEMALLOC_USE_STATIC_LIBS)
+-    set(JEMALLOC_LIB_TYPE STATIC)
+-  elseif(UNIX)
+-    get_filename_component(_JEMALLOC_EXT ${Jemalloc_LIBRARY} EXT)
+-    if(_JEMALLOC_EXT STREQUAL ".a")
+-      set(JEMALLOC_LIB_TYPE STATIC)
+-    elseif(_JEMALLOC_EXT STREQUAL ".so" OR
+-           _JEMALLOC_EXT STREQUAL ".dylib")
+-      set(JEMALLOC_LIB_TYPE SHARED)
+-    endif()
+-  endif()
+-
+-  set(Jemalloc_LIBRARIES ${Jemalloc_LIBRARY})
+-
+-  get_filename_component(Jemalloc_LIBRARY_DIRS ${Jemalloc_LIBRARY} DIRECTORY)
+-
+-  if(NOT TARGET Jemalloc::jemalloc)
+-    add_library(Jemalloc::jemalloc ${JEMALLOC_LIB_TYPE} IMPORTED)
+-    set_target_properties(Jemalloc::jemalloc PROPERTIES
+-      IMPORTED_LOCATION "${Jemalloc_LIBRARIES}"
+-      INTERFACE_COMPILE_OPTIONS "${PC_Jemalloc_CFLAGS_OTHER}"
+-    )
+-  endif()
+-elseif(Jemalloc_FIND_REQUIRED)
+-  message(FATAL_ERROR "Unable to find Jemalloc")
+-endif()
+diff -Naur a/cmake/FindLog4cplus.cmake b/cmake/FindLog4cplus.cmake
+--- a/cmake/FindLog4cplus.cmake	2020-08-13 12:15:58.000000000 -0700
++++ b/cmake/FindLog4cplus.cmake	1969-12-31 16:00:00.000000000 -0800
+@@ -1,235 +0,0 @@
+-# Copyright Contributors to the OpenVDB Project
+-# SPDX-License-Identifier: MPL-2.0
+-#
+-#[=======================================================================[.rst:
+-
+-FindLog4cplus
+--------------
+-
+-Find Log4cplus include dirs and libraries
+-
+-Use this module by invoking find_package with the form::
+-
+-  find_package(Log4cplus
+-    [version] [EXACT]      # Minimum or EXACT version
+-    [REQUIRED]             # Fail with error if Log4cplus is not found
+-    )
+-
+-
+-IMPORTED Targets
+-^^^^^^^^^^^^^^^^
+-
+-``Log4cplus::Log4cplus``
+-  This module defines IMPORTED target Log4cplus::log4cplus, if Log4cplus has been
+-  found.
+-
+-Result Variables
+-^^^^^^^^^^^^^^^^
+-
+-This will define the following variables:
+-
+-``Log4cplus_FOUND``
+-  True if the system has the Log4cplus library.
+-``Log4cplus_VERSION``
+-  The version of the Log4cplus library which was found.
+-``Log4cplus_INCLUDE_DIRS``
+-  Include directories needed to use Log4cplus.
+-``Log4cplus_LIBRARIES``
+-  Libraries needed to link to Log4cplus.
+-``Log4cplus_LIBRARY_DIRS``
+-  Log4cplus library directories.
+-
+-Cache Variables
+-^^^^^^^^^^^^^^^
+-
+-The following cache variables may also be set:
+-
+-``Log4cplus_INCLUDE_DIR``
+-  The directory containing ``log4cplus/version.h``.
+-``Log4cplus_LIBRARY``
+-  The path to the Log4cplus library.
+-
+-Hints
+-^^^^^
+-
+-Instead of explicitly setting the cache variables, the following variables
+-may be provided to tell this module where to look.
+-
+-``Log4cplus_ROOT``
+-  Preferred installation prefix.
+-``LOG4CPLUS_INCLUDEDIR``
+-  Preferred include directory e.g. <prefix>/include
+-``LOG4CPLUS_LIBRARYDIR``
+-  Preferred library directory e.g. <prefix>/lib
+-``SYSTEM_LIBRARY_PATHS``
+-  Global list of library paths intended to be searched by and find_xxx call
+-``LOG4CPLUS_USE_STATIC_LIBS``
+-  Only search for static log4cplus libraries
+-``DISABLE_CMAKE_SEARCH_PATHS``
+-  Disable CMakes default search paths for find_xxx calls in this module
+-
+-#]=======================================================================]
+-
+-cmake_minimum_required(VERSION 3.3)
+-include(GNUInstallDirs)
+-
+-# Monitoring <PackageName>_ROOT variables
+-if(POLICY CMP0074)
+-  cmake_policy(SET CMP0074 NEW)
+-endif()
+-
+-mark_as_advanced(
+-  Log4cplus_INCLUDE_DIR
+-  Log4cplus_LIBRARY
+-)
+-
+-set(_FIND_LOG4CPLUS_ADDITIONAL_OPTIONS "")
+-if(DISABLE_CMAKE_SEARCH_PATHS)
+-  set(_FIND_LOG4CPLUS_ADDITIONAL_OPTIONS NO_DEFAULT_PATH)
+-endif()
+-
+-# Set _LOG4CPLUS_ROOT based on a user provided root var. Xxx_ROOT and ENV{Xxx_ROOT}
+-# are prioritised over the legacy capitalized XXX_ROOT variables for matching
+-# CMake 3.12 behaviour
+-# @todo  deprecate -D and ENV LOG4CPLUS_ROOT from CMake 3.12
+-if(Log4cplus_ROOT)
+-  set(_LOG4CPLUS_ROOT ${Log4cplus_ROOT})
+-elseif(DEFINED ENV{Log4cplus_ROOT})
+-  set(_LOG4CPLUS_ROOT $ENV{Log4cplus_ROOT})
+-elseif(LOG4CPLUS_ROOT)
+-  set(_LOG4CPLUS_ROOT ${LOG4CPLUS_ROOT})
+-elseif(DEFINED ENV{LOG4CPLUS_ROOT})
+-  set(_LOG4CPLUS_ROOT $ENV{LOG4CPLUS_ROOT})
+-endif()
+-
+-# Additionally try and use pkconfig to find log4cplus
+-if(USE_PKGCONFIG)
+-  if(NOT DEFINED PKG_CONFIG_FOUND)
+-    find_package(PkgConfig)
+-  endif()
+-  pkg_check_modules(PC_Log4cplus QUIET log4cplus)
+-endif()
+-
+-# ------------------------------------------------------------------------
+-#  Search for Log4cplus include DIR
+-# ------------------------------------------------------------------------
+-
+-set(_LOG4CPLUS_INCLUDE_SEARCH_DIRS "")
+-list(APPEND _LOG4CPLUS_INCLUDE_SEARCH_DIRS
+-  ${LOG4CPLUS_INCLUDEDIR}
+-  ${_LOG4CPLUS_ROOT}
+-  ${PC_Log4cplus_INCLUDEDIR}
+-  ${SYSTEM_LIBRARY_PATHS}
+-)
+-
+-# Look for a standard log4cplus header file.
+-find_path(Log4cplus_INCLUDE_DIR log4cplus/version.h
+-  ${_FIND_LOG4CPLUS_ADDITIONAL_OPTIONS}
+-  PATHS ${_LOG4CPLUS_INCLUDE_SEARCH_DIRS}
+-  PATH_SUFFIXES ${CMAKE_INSTALL_INCLUDEDIR} include
+-)
+-
+-if(EXISTS "${Log4cplus_INCLUDE_DIR}/log4cplus/version.h")
+-  file(STRINGS "${Log4cplus_INCLUDE_DIR}/log4cplus/version.h"
+-    _log4cplus_version_string REGEX "#define LOG4CPLUS_VERSION LOG4CPLUS_MAKE_VERSION"
+-  )
+-  string(REGEX REPLACE "#define LOG4CPLUS_VERSION LOG4CPLUS_MAKE_VERSION\((.*)\).*$" "\\1"
+-    _log4cplus_version_string "${_log4cplus_version_string}"
+-  )
+-  string(REGEX REPLACE "[(]([0-9]+),.*[)].*$" "\\1"
+-    Log4cplus_MAJOR_VERSION "${_log4cplus_version_string}"
+-  )
+-  string(REGEX REPLACE "[(].+, ([0-9]+),.+[)].*$" "\\1"
+-    Log4cplus_MINOR_VERSION "${_log4cplus_version_string}"
+-  )
+-  string(REGEX REPLACE "[(].*,.*, ([0-9]+)[)].*$" "\\1"
+-    Log4cplus_PATCH_VERSION "${_log4cplus_version_string}"
+-  )
+-  unset(_log4cplus_version_string)
+-
+-  set(Log4cplus_VERSION ${Log4cplus_MAJOR_VERSION}.${Log4cplus_MINOR_VERSION}.${Log4cplus_PATCH_VERSION})
+-endif()
+-
+-# ------------------------------------------------------------------------
+-#  Search for Log4cplus lib DIR
+-# ------------------------------------------------------------------------
+-
+-set(_LOG4CPLUS_LIBRARYDIR_SEARCH_DIRS "")
+-list(APPEND _LOG4CPLUS_LIBRARYDIR_SEARCH_DIRS
+-  ${LOG4CPLUS_LIBRARYDIR}
+-  ${_LOG4CPLUS_ROOT}
+-  ${PC_Log4cplus_LIBDIR}
+-  ${SYSTEM_LIBRARY_PATHS}
+-)
+-
+-# Library suffix handling
+-
+-set(_LOG4CPLUS_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
+-
+-if(WIN32)
+-  if(LOG4CPLUS_USE_STATIC_LIBS)
+-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".lib")
+-  endif()
+-else()
+-  if(LOG4CPLUS_USE_STATIC_LIBS)
+-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+-  endif()
+-endif()
+-
+-find_library(Log4cplus_LIBRARY log4cplus
+-  ${_FIND_LOG4CPLUS_ADDITIONAL_OPTIONS}
+-  PATHS ${_LOG4CPLUS_LIBRARYDIR_SEARCH_DIRS}
+-  PATH_SUFFIXES ${CMAKE_INSTALL_LIBDIR} lib64 lib
+-)
+-
+-# Reset library suffix
+-
+-set(CMAKE_FIND_LIBRARY_SUFFIXES ${_LOG4CPLUS_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES})
+-unset(_LOG4CPLUS_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES)
+-
+-# ------------------------------------------------------------------------
+-#  Cache and set Log4cplus_FOUND
+-# ------------------------------------------------------------------------
+-
+-include(FindPackageHandleStandardArgs)
+-find_package_handle_standard_args(Log4cplus
+-  FOUND_VAR Log4cplus_FOUND
+-  REQUIRED_VARS
+-    Log4cplus_LIBRARY
+-    Log4cplus_INCLUDE_DIR
+-  VERSION_VAR Log4cplus_VERSION
+-)
+-
+-if(Log4cplus_FOUND)
+-  # Configure lib type. If XXX_USE_STATIC_LIBS, we always assume a static
+-  # lib is in use. If win32, we can't mark the import .libs as shared, so
+-  # these are always marked as UNKNOWN. Otherwise, infer from extension.
+-  set(LOG4CPLUS_LIB_TYPE UNKNOWN)
+-  if(LOG4CPLUS_USE_STATIC_LIBS)
+-    set(LOG4CPLUS_LIB_TYPE STATIC)
+-  elseif(UNIX)
+-    get_filename_component(_LOG4CPLUS_EXT ${Log4cplus_LIBRARY} EXT)
+-    if(_LOG4CPLUS_EXT STREQUAL ".a")
+-      set(LOG4CPLUS_LIB_TYPE STATIC)
+-    elseif(_LOG4CPLUS_EXT STREQUAL ".so" OR
+-           _LOG4CPLUS_EXT STREQUAL ".dylib")
+-      set(LOG4CPLUS_LIB_TYPE SHARED)
+-    endif()
+-  endif()
+-
+-  set(Log4cplus_LIBRARIES ${Log4cplus_LIBRARY})
+-  set(Log4cplus_INCLUDE_DIRS ${Log4cplus_INCLUDE_DIR})
+-
+-  get_filename_component(Log4cplus_LIBRARY_DIRS ${Log4cplus_LIBRARY} DIRECTORY)
+-
+-  if(NOT TARGET Log4cplus::log4cplus)
+-    add_library(Log4cplus::log4cplus ${LOG4CPLUS_LIB_TYPE} IMPORTED)
+-    set_target_properties(Log4cplus::log4cplus PROPERTIES
+-      IMPORTED_LOCATION "${Log4cplus_LIBRARIES}"
+-      INTERFACE_COMPILE_OPTIONS "${PC_Log4cplus_CFLAGS_OTHER}"
+-      INTERFACE_INCLUDE_DIRECTORIES "${Log4cplus_INCLUDE_DIRS}"
+-    )
+-  endif()
+-elseif(Log4cplus_FIND_REQUIRED)
+-  message(FATAL_ERROR "Unable to find Log4cplus")
+-endif()
+diff -Naur a/cmake/FindOpenEXR.cmake b/cmake/FindOpenEXR.cmake
+--- a/cmake/FindOpenEXR.cmake	2020-08-13 12:15:58.000000000 -0700
++++ b/cmake/FindOpenEXR.cmake	1969-12-31 16:00:00.000000000 -0800
+@@ -1,336 +0,0 @@
+-# Copyright Contributors to the OpenVDB Project
+-# SPDX-License-Identifier: MPL-2.0
+-#
+-#[=======================================================================[.rst:
+-
+-FindOpenEXR
+------------
+-
+-Find OpenEXR include dirs and libraries
+-
+-Use this module by invoking find_package with the form::
+-
+-  find_package(OpenEXR
+-    [version] [EXACT]      # Minimum or EXACT version
+-    [REQUIRED]             # Fail with error if OpenEXR is not found
+-    [COMPONENTS <libs>...] # OpenEXR libraries by their canonical name
+-                           # e.g. "IlmImf" for "libIlmImf"
+-    )
+-
+-IMPORTED Targets
+-^^^^^^^^^^^^^^^^
+-
+-``OpenEXR::IlmImf``
+-  The IlmImf library target.
+-``OpenEXR::IlmImfUtil``
+-  The IlmImfUtil library target.
+-
+-Result Variables
+-^^^^^^^^^^^^^^^^
+-
+-This will define the following variables:
+-
+-``OpenEXR_FOUND``
+-  True if the system has the OpenEXR library.
+-``OpenEXR_VERSION``
+-  The version of the OpenEXR library which was found.
+-``OpenEXR_INCLUDE_DIRS``
+-  Include directories needed to use OpenEXR.
+-``OpenEXR_LIBRARIES``
+-  Libraries needed to link to OpenEXR.
+-``OpenEXR_LIBRARY_DIRS``
+-  OpenEXR library directories.
+-``OpenEXR_DEFINITIONS``
+-  Definitions to use when compiling code that uses OpenEXR.
+-``OpenEXR_{COMPONENT}_FOUND``
+-  True if the system has the named OpenEXR component.
+-
+-Cache Variables
+-^^^^^^^^^^^^^^^
+-
+-The following cache variables may also be set:
+-
+-``OpenEXR_INCLUDE_DIR``
+-  The directory containing ``OpenEXR/config-auto.h``.
+-``OpenEXR_{COMPONENT}_LIBRARY``
+-  Individual component libraries for OpenEXR
+-
+-Hints
+-^^^^^
+-
+-Instead of explicitly setting the cache variables, the following variables
+-may be provided to tell this module where to look.
+-
+-``OpenEXR_ROOT``
+-  Preferred installation prefix.
+-``OPENEXR_INCLUDEDIR``
+-  Preferred include directory e.g. <prefix>/include
+-``OPENEXR_LIBRARYDIR``
+-  Preferred library directory e.g. <prefix>/lib
+-``SYSTEM_LIBRARY_PATHS``
+-  Global list of library paths intended to be searched by and find_xxx call
+-``OPENEXR_USE_STATIC_LIBS``
+-  Only search for static openexr libraries
+-``DISABLE_CMAKE_SEARCH_PATHS``
+-  Disable CMakes default search paths for find_xxx calls in this module
+-
+-#]=======================================================================]
+-
+-cmake_minimum_required(VERSION 3.3)
+-include(GNUInstallDirs)
+-
+-# Monitoring <PackageName>_ROOT variables
+-if(POLICY CMP0074)
+-  cmake_policy(SET CMP0074 NEW)
+-endif()
+-
+-mark_as_advanced(
+-  OpenEXR_INCLUDE_DIR
+-  OpenEXR_LIBRARY
+-)
+-
+-set(_FIND_OPENEXR_ADDITIONAL_OPTIONS "")
+-if(DISABLE_CMAKE_SEARCH_PATHS)
+-  set(_FIND_OPENEXR_ADDITIONAL_OPTIONS NO_DEFAULT_PATH)
+-endif()
+-
+-set(_OPENEXR_COMPONENT_LIST
+-  IlmImf
+-  IlmImfUtil
+-)
+-
+-if(OpenEXR_FIND_COMPONENTS)
+-  set(OPENEXR_COMPONENTS_PROVIDED TRUE)
+-  set(_IGNORED_COMPONENTS "")
+-  foreach(COMPONENT ${OpenEXR_FIND_COMPONENTS})
+-    if(NOT ${COMPONENT} IN_LIST _OPENEXR_COMPONENT_LIST)
+-      list(APPEND _IGNORED_COMPONENTS ${COMPONENT})
+-    endif()
+-  endforeach()
+-
+-  if(_IGNORED_COMPONENTS)
+-    message(STATUS "Ignoring unknown components of OpenEXR:")
+-    foreach(COMPONENT ${_IGNORED_COMPONENTS})
+-      message(STATUS "  ${COMPONENT}")
+-    endforeach()
+-    list(REMOVE_ITEM OpenEXR_FIND_COMPONENTS ${_IGNORED_COMPONENTS})
+-  endif()
+-else()
+-  set(OPENEXR_COMPONENTS_PROVIDED FALSE)
+-  set(OpenEXR_FIND_COMPONENTS ${_OPENEXR_COMPONENT_LIST})
+-endif()
+-
+-# Set _OPENEXR_ROOT based on a user provided root var. Xxx_ROOT and ENV{Xxx_ROOT}
+-# are prioritised over the legacy capitalized XXX_ROOT variables for matching
+-# CMake 3.12 behaviour
+-# @todo  deprecate -D and ENV OPENEXR_ROOT from CMake 3.12
+-if(OpenEXR_ROOT)
+-  set(_OPENEXR_ROOT ${OpenEXR_ROOT})
+-elseif(DEFINED ENV{OpenEXR_ROOT})
+-  set(_OPENEXR_ROOT $ENV{OpenEXR_ROOT})
+-elseif(OPENEXR_ROOT)
+-  set(_OPENEXR_ROOT ${OPENEXR_ROOT})
+-elseif(DEFINED ENV{OPENEXR_ROOT})
+-  set(_OPENEXR_ROOT $ENV{OPENEXR_ROOT})
+-endif()
+-
+-# Additionally try and use pkconfig to find OpenEXR
+-if(USE_PKGCONFIG)
+-  if(NOT DEFINED PKG_CONFIG_FOUND)
+-    find_package(PkgConfig)
+-  endif()
+-  pkg_check_modules(PC_OpenEXR QUIET OpenEXR)
+-endif()
+-
+-# ------------------------------------------------------------------------
+-#  Search for OpenEXR include DIR
+-# ------------------------------------------------------------------------
+-
+-set(_OPENEXR_INCLUDE_SEARCH_DIRS "")
+-list(APPEND _OPENEXR_INCLUDE_SEARCH_DIRS
+-  ${OPENEXR_INCLUDEDIR}
+-  ${_OPENEXR_ROOT}
+-  ${PC_OpenEXR_INCLUDEDIR}
+-  ${SYSTEM_LIBRARY_PATHS}
+-)
+-
+-# Look for a standard OpenEXR header file.
+-find_path(OpenEXR_INCLUDE_DIR OpenEXRConfig.h
+-  ${_FIND_OPENEXR_ADDITIONAL_OPTIONS}
+-  PATHS ${_OPENEXR_INCLUDE_SEARCH_DIRS}
+-  PATH_SUFFIXES ${CMAKE_INSTALL_INCLUDEDIR}/OpenEXR include/OpenEXR OpenEXR
+-)
+-
+-if(EXISTS "${OpenEXR_INCLUDE_DIR}/OpenEXRConfig.h")
+-  # Get the EXR version information from the config header
+-  file(STRINGS "${OpenEXR_INCLUDE_DIR}/OpenEXRConfig.h"
+-    _openexr_version_major_string REGEX "#define OPENEXR_VERSION_MAJOR "
+-  )
+-  string(REGEX REPLACE "#define OPENEXR_VERSION_MAJOR" ""
+-    _openexr_version_major_string "${_openexr_version_major_string}"
+-  )
+-  string(STRIP "${_openexr_version_major_string}" OpenEXR_VERSION_MAJOR)
+-
+-  file(STRINGS "${OpenEXR_INCLUDE_DIR}/OpenEXRConfig.h"
+-     _openexr_version_minor_string REGEX "#define OPENEXR_VERSION_MINOR "
+-  )
+-  string(REGEX REPLACE "#define OPENEXR_VERSION_MINOR" ""
+-    _openexr_version_minor_string "${_openexr_version_minor_string}"
+-  )
+-  string(STRIP "${_openexr_version_minor_string}" OpenEXR_VERSION_MINOR)
+-
+-  unset(_openexr_version_major_string)
+-  unset(_openexr_version_minor_string)
+-
+-  set(OpenEXR_VERSION ${OpenEXR_VERSION_MAJOR}.${OpenEXR_VERSION_MINOR})
+-endif()
+-
+-# ------------------------------------------------------------------------
+-#  Search for OPENEXR lib DIR
+-# ------------------------------------------------------------------------
+-
+-set(_OPENEXR_LIBRARYDIR_SEARCH_DIRS "")
+-
+-# Append to _OPENEXR_LIBRARYDIR_SEARCH_DIRS in priority order
+-
+-list(APPEND _OPENEXR_LIBRARYDIR_SEARCH_DIRS
+-  ${OPENEXR_LIBRARYDIR}
+-  ${_OPENEXR_ROOT}
+-  ${PC_OpenEXR_LIBDIR}
+-  ${SYSTEM_LIBRARY_PATHS}
+-)
+-
+-# Library suffix handling
+-
+-set(_OPENEXR_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
+-set(_OpenEXR_Version_Suffix "-${OpenEXR_VERSION_MAJOR}_${OpenEXR_VERSION_MINOR}")
+-
+-if(WIN32)
+-  if(OPENEXR_USE_STATIC_LIBS)
+-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".lib")
+-  endif()
+-  list(APPEND CMAKE_FIND_LIBRARY_SUFFIXES "${_OpenEXR_Version_Suffix}.lib")
+-else()
+-  if(OPENEXR_USE_STATIC_LIBS)
+-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+-  else()
+-    if(APPLE)
+-      list(APPEND CMAKE_FIND_LIBRARY_SUFFIXES "${_OpenEXR_Version_Suffix}.dylib")
+-    else()
+-      list(APPEND CMAKE_FIND_LIBRARY_SUFFIXES "${_OpenEXR_Version_Suffix}.so")
+-    endif()
+-  endif()
+-  list(APPEND CMAKE_FIND_LIBRARY_SUFFIXES "${_OpenEXR_Version_Suffix}.a")
+-endif()
+-
+-unset(_OpenEXR_Version_Suffix)
+-
+-set(OpenEXR_LIB_COMPONENTS "")
+-
+-foreach(COMPONENT ${OpenEXR_FIND_COMPONENTS})
+-  find_library(OpenEXR_${COMPONENT}_LIBRARY ${COMPONENT}
+-    ${_FIND_OPENEXR_ADDITIONAL_OPTIONS}
+-    PATHS ${_OPENEXR_LIBRARYDIR_SEARCH_DIRS}
+-    PATH_SUFFIXES ${CMAKE_INSTALL_LIBDIR} lib64 lib
+-  )
+-  list(APPEND OpenEXR_LIB_COMPONENTS ${OpenEXR_${COMPONENT}_LIBRARY})
+-
+-  if(OpenEXR_${COMPONENT}_LIBRARY)
+-    set(OpenEXR_${COMPONENT}_FOUND TRUE)
+-  else()
+-    set(OpenEXR_${COMPONENT}_FOUND FALSE)
+-  endif()
+-endforeach()
+-
+-# Reset library suffix
+-
+-set(CMAKE_FIND_LIBRARY_SUFFIXES ${_OPENEXR_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES})
+-unset(_OPENEXR_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES)
+-
+-# ------------------------------------------------------------------------
+-#  Cache and set OPENEXR_FOUND
+-# ------------------------------------------------------------------------
+-
+-include(FindPackageHandleStandardArgs)
+-find_package_handle_standard_args(OpenEXR
+-  FOUND_VAR OpenEXR_FOUND
+-  REQUIRED_VARS
+-    OpenEXR_INCLUDE_DIR
+-    OpenEXR_LIB_COMPONENTS
+-  VERSION_VAR OpenEXR_VERSION
+-  HANDLE_COMPONENTS
+-)
+-
+-if(OpenEXR_FOUND)
+-  set(OpenEXR_LIBRARIES ${OpenEXR_LIB_COMPONENTS})
+-
+-  # We have to add both include and include/OpenEXR to the include
+-  # path in case OpenEXR and IlmBase are installed separately.
+-  #
+-  # Make sure we get the absolute path to avoid issues where
+-  # /usr/include/OpenEXR/../ is picked up and passed to gcc from cmake
+-  # which won't correctly compute /usr/include as an implicit system
+-  # dir if the path is relative:
+-  #
+-  # https://github.com/AcademySoftwareFoundation/openvdb/issues/632
+-  # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=70129
+-
+-  set(_OpenEXR_Parent_Dir "")
+-  get_filename_component(_OpenEXR_Parent_Dir
+-    ${OpenEXR_INCLUDE_DIR}/../ ABSOLUTE)
+-
+-  set(OpenEXR_INCLUDE_DIRS)
+-  list(APPEND OpenEXR_INCLUDE_DIRS
+-    ${_OpenEXR_Parent_Dir}
+-    ${OpenEXR_INCLUDE_DIR}
+-  )
+-  unset(_OpenEXR_Parent_Dir)
+-
+-  set(OpenEXR_LIBRARY_DIRS "")
+-  foreach(LIB ${OpenEXR_LIB_COMPONENTS})
+-    get_filename_component(_OPENEXR_LIBDIR ${LIB} DIRECTORY)
+-    list(APPEND OpenEXR_LIBRARY_DIRS ${_OPENEXR_LIBDIR})
+-  endforeach()
+-  list(REMOVE_DUPLICATES OpenEXR_LIBRARY_DIRS)
+-
+-  # Configure imported target
+-
+-  foreach(COMPONENT ${OpenEXR_FIND_COMPONENTS})
+-    # Configure lib type. If XXX_USE_STATIC_LIBS, we always assume a static
+-    # lib is in use. If win32, we can't mark the import .libs as shared, so
+-    # these are always marked as UNKNOWN. Otherwise, infer from extension.
+-    set(OpenEXR_${COMPONENT}_LIB_TYPE UNKNOWN)
+-    if(OPENEXR_USE_STATIC_LIBS)
+-      set(OpenEXR_${COMPONENT}_LIB_TYPE STATIC)
+-    elseif(UNIX)
+-      get_filename_component(_OpenEXR_${COMPONENT}_EXT ${OpenEXR_${COMPONENT}_LIBRARY} EXT)
+-      if(${_OpenEXR_${COMPONENT}_EXT} STREQUAL ".a")
+-        set(OpenEXR_${COMPONENT}_LIB_TYPE STATIC)
+-      elseif(${_OpenEXR_${COMPONENT}_EXT} STREQUAL ".so" OR
+-             ${_OpenEXR_${COMPONENT}_EXT} STREQUAL ".dylib")
+-        set(OpenEXR_${COMPONENT}_LIB_TYPE SHARED)
+-      endif()
+-    endif()
+-
+-    set(OpenEXR_${COMPONENT}_DEFINITIONS)
+-
+-    # Add the OPENEXR_DLL define if the library is not static on WIN32
+-    if(WIN32)
+-      if(NOT OpenEXR_${COMPONENT}_LIB_TYPE STREQUAL STATIC)
+-        list(APPEND OpenEXR_${COMPONENT}_DEFINITIONS OPENEXR_DLL)
+-      endif()
+-    endif()
+-
+-    if(NOT TARGET OpenEXR::${COMPONENT})
+-      add_library(OpenEXR::${COMPONENT} ${OpenEXR_${COMPONENT}_LIB_TYPE} IMPORTED)
+-      set_target_properties(OpenEXR::${COMPONENT} PROPERTIES
+-        IMPORTED_LOCATION "${OpenEXR_${COMPONENT}_LIBRARY}"
+-        INTERFACE_COMPILE_OPTIONS "${PC_OpenEXR_CFLAGS_OTHER}"
+-        INTERFACE_COMPILE_DEFINITIONS "${OpenEXR_${COMPONENT}_DEFINITIONS}"
+-        INTERFACE_INCLUDE_DIRECTORIES "${OpenEXR_INCLUDE_DIRS}"
+-      )
+-    endif()
+-  endforeach()
+-elseif(OpenEXR_FIND_REQUIRED)
+-  message(FATAL_ERROR "Unable to find OpenEXR")
+-endif()
+diff -Naur a/cmake/FindOpenVDB.cmake b/cmake/FindOpenVDB.cmake
+--- a/cmake/FindOpenVDB.cmake	2020-08-13 12:15:58.000000000 -0700
++++ b/cmake/FindOpenVDB.cmake	1969-12-31 16:00:00.000000000 -0800
+@@ -1,705 +0,0 @@
+-# Copyright Contributors to the OpenVDB Project
+-# SPDX-License-Identifier: MPL-2.0
+-#
+-#[=======================================================================[.rst:
+-
+-FindOpenVDB
+------------
+-
+-Find OpenVDB include dirs, libraries and settings
+-
+-Use this module by invoking find_package with the form::
+-
+-  find_package(OpenVDB
+-    [version] [EXACT]      # Minimum or EXACT version
+-    [REQUIRED]             # Fail with error if OpenVDB is not found
+-    [COMPONENTS <libs>...] # OpenVDB libraries by their canonical name
+-                           # e.g. "openvdb" for "libopenvdb",
+-                           # "pyopenvdb" for the python plugin
+-                           # "openvdb_houdini" for the houdini plugin
+-    )
+-
+-IMPORTED Targets
+-^^^^^^^^^^^^^^^^
+-
+-``OpenVDB::openvdb``
+-  The core openvdb library target.
+-``OpenVDB::openvdb_je``
+-  The core openvdb library target with jemalloc.
+-``OpenVDB::pyopenvdb``
+-  The openvdb python library target.
+-``OpenVDB::openvdb_houdini``
+-  The openvdb houdini library target.
+-
+-Result Variables
+-^^^^^^^^^^^^^^^^
+-
+-This will define the following variables:
+-
+-``OpenVDB_FOUND``
+-  True if the system has the OpenVDB library.
+-``OpenVDB_VERSION``
+-  The version of the OpenVDB library which was found.
+-``OpenVDB_INCLUDE_DIRS``
+-  Include directories needed to use OpenVDB.
+-``OpenVDB_LIBRARIES``
+-  Libraries needed to link to OpenVDB.
+-``OpenVDB_LIBRARY_DIRS``
+-  OpenVDB library directories.
+-``OpenVDB_DEFINITIONS``
+-  Definitions to use when compiling code that uses OpenVDB.
+-``OpenVDB_${COMPONENT}_FOUND``
+-  True if the system has the named OpenVDB component.
+-``OpenVDB_USES_BLOSC``
+-  True if the OpenVDB Library has been built with blosc support
+-``OpenVDB_USES_LOG4CPLUS``
+-  True if the OpenVDB Library has been built with log4cplus support
+-``OpenVDB_USES_EXR``
+-  True if the OpenVDB Library has been built with openexr support
+-``OpenVDB_ABI``
+-  Set if this module was able to determine the ABI number the located
+-  OpenVDB Library was built against. Unset otherwise.
+-
+-Cache Variables
+-^^^^^^^^^^^^^^^
+-
+-The following cache variables may also be set:
+-
+-``OpenVDB_INCLUDE_DIR``
+-  The directory containing ``openvdb/version.h``.
+-``OpenVDB_${COMPONENT}_INCLUDE_DIR``
+-  Individual component include directories for OpenVDB
+-``OpenVDB_${COMPONENT}_LIBRARY``
+-  Individual component libraries for OpenVDB
+-
+-Hints
+-^^^^^
+-
+-Instead of explicitly setting the cache variables, the following variables
+-may be provided to tell this module where to look.
+-
+-``OpenVDB_ROOT``
+-  Preferred installation prefix.
+-``OPENVDB_INCLUDEDIR``
+-  Preferred include directory e.g. <prefix>/include
+-``OPENVDB_LIBRARYDIR``
+-  Preferred library directory e.g. <prefix>/lib
+-``OPENVDB_${COMPONENT}_ROOT``
+-  Preferred installation prefix of a specific component.
+-``OPENVDB_${COMPONENT}_INCLUDEDIR``
+-  Preferred include directory of a specific component e.g. <prefix>/include
+-``OPENVDB_${COMPONENT}_LIBRARYDIR``
+-  Preferred library directory of a specific component e.g. <prefix>/lib
+-``SYSTEM_LIBRARY_PATHS``
+-  Global list of library paths intended to be searched by and find_xxx call
+-``OPENVDB_USE_STATIC_LIBS``
+-  Only search for static openvdb libraries
+-``DISABLE_CMAKE_SEARCH_PATHS``
+-  Disable CMakes default search paths for find_xxx calls in this module
+-
+-#]=======================================================================]
+-
+-cmake_minimum_required(VERSION 3.3)
+-include(GNUInstallDirs)
+-
+-# Monitoring <PackageName>_ROOT variables
+-if(POLICY CMP0074)
+-  cmake_policy(SET CMP0074 NEW)
+-endif()
+-
+-# Include utility functions for version information
+-include(${CMAKE_CURRENT_LIST_DIR}/OpenVDBUtils.cmake)
+-
+-mark_as_advanced(
+-  OpenVDB_INCLUDE_DIR
+-  OpenVDB_LIBRARY
+-)
+-
+-set(_FIND_OPENVDB_ADDITIONAL_OPTIONS "")
+-if(DISABLE_CMAKE_SEARCH_PATHS)
+-  set(_FIND_OPENVDB_ADDITIONAL_OPTIONS NO_DEFAULT_PATH)
+-endif()
+-
+-set(_OPENVDB_COMPONENT_LIST
+-  openvdb
+-  openvdb_je
+-  pyopenvdb
+-  openvdb_houdini
+-)
+-
+-if(OpenVDB_FIND_COMPONENTS)
+-  set(OPENVDB_COMPONENTS_PROVIDED TRUE)
+-  set(_IGNORED_COMPONENTS "")
+-  foreach(COMPONENT ${OpenVDB_FIND_COMPONENTS})
+-    if(NOT ${COMPONENT} IN_LIST _OPENVDB_COMPONENT_LIST)
+-      list(APPEND _IGNORED_COMPONENTS ${COMPONENT})
+-    endif()
+-  endforeach()
+-
+-  if(_IGNORED_COMPONENTS)
+-    message(STATUS "Ignoring unknown components of OpenVDB:")
+-    foreach(COMPONENT ${_IGNORED_COMPONENTS})
+-      message(STATUS "  ${COMPONENT}")
+-    endforeach()
+-    list(REMOVE_ITEM OpenVDB_FIND_COMPONENTS ${_IGNORED_COMPONENTS})
+-  endif()
+-else()
+-  set(OPENVDB_COMPONENTS_PROVIDED FALSE)
+-  set(OpenVDB_FIND_COMPONENTS openvdb)
+-endif()
+-
+-# always make sure openvdb is picked up as a component i.e.
+-# find_package(OpenVDB COMPONENTS pyopenvdb) results in both
+-# openvdb and pyopenvdb targets. Also make sure it appears
+-# first in the component lists.
+-list(INSERT OpenVDB_FIND_COMPONENTS 0 openvdb)
+-list(REMOVE_DUPLICATES OpenVDB_FIND_COMPONENTS)
+-
+-# Set _OPENVDB_ROOT based on a user provided root var. Xxx_ROOT and ENV{Xxx_ROOT}
+-# are prioritised over the legacy capitalized XXX_ROOT variables for matching
+-# CMake 3.12 behaviour
+-# @todo  deprecate -D and ENV OPENVDB_ROOT from CMake 3.12
+-if(OpenVDB_ROOT)
+-  set(_OPENVDB_ROOT ${OpenVDB_ROOT})
+-elseif(DEFINED ENV{OpenVDB_ROOT})
+-  set(_OPENVDB_ROOT $ENV{OpenVDB_ROOT})
+-elseif(OPENVDB_ROOT)
+-  set(_OPENVDB_ROOT ${OPENVDB_ROOT})
+-elseif(DEFINED ENV{OPENVDB_ROOT})
+-  set(_OPENVDB_ROOT $ENV{OPENVDB_ROOT})
+-endif()
+-
+-# Additionally try and use pkconfig to find OpenVDB
+-if(USE_PKGCONFIG)
+-  if(NOT DEFINED PKG_CONFIG_FOUND)
+-    find_package(PkgConfig)
+-  endif()
+-  pkg_check_modules(PC_OpenVDB QUIET OpenVDB)
+-endif()
+-
+-# This CMake module supports being called from external packages AND from
+-# within the OpenVDB repository for building openvdb components with the
+-# core library build disabled. Determine where we are being called from:
+-#
+-# (repo structure = <root>/cmake/FindOpenVDB.cmake)
+-# (inst structure = <root>/lib/cmake/OpenVDB/FindOpenVDB.cmake)
+-
+-get_filename_component(_DIR_NAME ${CMAKE_CURRENT_LIST_DIR} NAME)
+-
+-if(${_DIR_NAME} STREQUAL "cmake")
+-  # Called from root repo for openvdb components
+-elseif(${_DIR_NAME} STREQUAL "OpenVDB")
+-  # Set the install variable to track directories if this is being called from
+-  # an installed location and from another package. The expected installation
+-  # directory structure is:
+-  #  <root>/lib/cmake/OpenVDB/FindOpenVDB.cmake
+-  #  <root>/include
+-  #  <root>/bin
+-  get_filename_component(_IMPORT_PREFIX ${CMAKE_CURRENT_LIST_DIR} DIRECTORY)
+-  get_filename_component(_IMPORT_PREFIX ${_IMPORT_PREFIX} DIRECTORY)
+-  get_filename_component(_IMPORT_PREFIX ${_IMPORT_PREFIX} DIRECTORY)
+-  set(_OPENVDB_INSTALL ${_IMPORT_PREFIX})
+-  list(APPEND _OPENVDB_ROOT ${_OPENVDB_INSTALL})
+-endif()
+-
+-unset(_DIR_NAME)
+-unset(_IMPORT_PREFIX)
+-
+-# ------------------------------------------------------------------------
+-#  Search for OpenVDB include DIR
+-# ------------------------------------------------------------------------
+-
+-set(_OPENVDB_INCLUDE_SEARCH_DIRS "")
+-list(APPEND _OPENVDB_INCLUDE_SEARCH_DIRS
+-  ${OPENVDB_INCLUDEDIR}
+-  ${_OPENVDB_ROOT}
+-  ${PC_OpenVDB_INCLUDE_DIRS}
+-  ${SYSTEM_LIBRARY_PATHS}
+-)
+-
+-foreach(COMPONENT ${OpenVDB_FIND_COMPONENTS})
+-  # Add in extra component paths
+-  set(_VDB_COMPONENT_SEARCH_DIRS ${_OPENVDB_INCLUDE_SEARCH_DIRS})
+-  list(APPEND _VDB_COMPONENT_SEARCH_DIRS
+-    ${OPENVDB_${COMPONENT}_ROOT}
+-    ${OPENVDB_${COMPONENT}_INCLUDEDIR}
+-  )
+-  list(REMOVE_DUPLICATES _VDB_COMPONENT_SEARCH_DIRS)
+-
+-  # Look for a standard header files.
+-  if(${COMPONENT} STREQUAL "openvdb")
+-    # Look for a standard OpenVDB header file.
+-    find_path(OpenVDB_${COMPONENT}_INCLUDE_DIR openvdb/version.h
+-      ${_FIND_OPENVDB_ADDITIONAL_OPTIONS}
+-      PATHS ${_VDB_COMPONENT_SEARCH_DIRS}
+-      PATH_SUFFIXES
+-        ${CMAKE_INSTALL_INCLUDEDIR}
+-        include
+-    )
+-  elseif(${COMPONENT} STREQUAL "pyopenvdb")
+-    find_path(OpenVDB_${COMPONENT}_INCLUDE_DIR pyopenvdb.h
+-      ${_FIND_OPENVDB_ADDITIONAL_OPTIONS}
+-      PATHS ${_VDB_COMPONENT_SEARCH_DIRS}
+-      PATH_SUFFIXES
+-        ${CMAKE_INSTALL_INCLUDEDIR}/openvdb/python
+-        ${CMAKE_INSTALL_INCLUDEDIR}/openvdb
+-        ${CMAKE_INSTALL_INCLUDEDIR}
+-        include
+-    )
+-  elseif(${COMPONENT} STREQUAL "openvdb_houdini")
+-    # @note  Expects both houdini_utils and openvdb_houdini folders
+-    #   to be located in the same place
+-    find_path(OpenVDB_${COMPONENT}_INCLUDE_DIR openvdb_houdini/SOP_NodeVDB.h
+-      ${_FIND_OPENVDB_ADDITIONAL_OPTIONS}
+-      PATHS ${_VDB_COMPONENT_SEARCH_DIRS}
+-      PATH_SUFFIXES
+-        ${CMAKE_INSTALL_INCLUDEDIR}/openvdb
+-        ${CMAKE_INSTALL_INCLUDEDIR}
+-        include
+-    )
+-  endif()
+-  unset(_VDB_COMPONENT_SEARCH_DIRS)
+-endforeach()
+-
+-set(OpenVDB_INCLUDE_DIR ${OpenVDB_openvdb_INCLUDE_DIR}
+-  CACHE PATH "The OpenVDB core include directory")
+-
+-OPENVDB_VERSION_FROM_HEADER("${OpenVDB_INCLUDE_DIR}/openvdb/version.h"
+-  VERSION OpenVDB_VERSION
+-  MAJOR   OpenVDB_MAJOR_VERSION
+-  MINOR   OpenVDB_MINOR_VERSION
+-  PATCH   OpenVDB_PATCH_VERSION
+-)
+-
+-# ------------------------------------------------------------------------
+-#  Search for OPENVDB lib DIR
+-# ------------------------------------------------------------------------
+-
+-set(_OPENVDB_LIBRARYDIR_SEARCH_DIRS "")
+-
+-# Append to _OPENVDB_LIBRARYDIR_SEARCH_DIRS in priority order
+-
+-list(APPEND _OPENVDB_LIBRARYDIR_SEARCH_DIRS
+-  ${OPENVDB_LIBRARYDIR}
+-  ${_OPENVDB_ROOT}
+-  ${PC_OpenVDB_LIBRARY_DIRS}
+-  ${SYSTEM_LIBRARY_PATHS}
+-)
+-
+-# Library suffix handling
+-
+-set(_OPENVDB_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
+-
+-set(OPENVDB_PYTHON_PATH_SUFFIXES
+-  ${CMAKE_INSTALL_LIBDIR}/python
+-  ${CMAKE_INSTALL_LIBDIR}/python2.7
+-  ${CMAKE_INSTALL_LIBDIR}/python3
+-  lib64/python
+-  lib64/python2.7
+-  lib64/python3
+-  lib/python
+-  lib/python2.7
+-  lib/python3
+-)
+-
+-set(OPENVDB_LIB_PATH_SUFFIXES
+-  ${CMAKE_INSTALL_LIBDIR}
+-  lib64
+-  lib
+-)
+-
+-list(REMOVE_DUPLICATES OPENVDB_PYTHON_PATH_SUFFIXES)
+-list(REMOVE_DUPLICATES OPENVDB_LIB_PATH_SUFFIXES)
+-
+-# Static library setup
+-if(WIN32)
+-  if(OPENVDB_USE_STATIC_LIBS)
+-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".lib")
+-  endif()
+-else()
+-  if(OPENVDB_USE_STATIC_LIBS)
+-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+-  endif()
+-endif()
+-
+-set(OpenVDB_LIB_COMPONENTS "")
+-
+-foreach(COMPONENT ${OpenVDB_FIND_COMPONENTS})
+-  set(LIB_NAME ${COMPONENT})
+-
+-  # Add in extra component paths
+-  set(_VDB_COMPONENT_SEARCH_DIRS ${_OPENVDB_LIBRARYDIR_SEARCH_DIRS})
+-  list(APPEND _VDB_COMPONENT_SEARCH_DIRS
+-    ${OPENVDB_${COMPONENT}_ROOT}
+-    ${OPENVDB_${COMPONENT}_LIBRARYDIR}
+-  )
+-
+-  if(${COMPONENT} STREQUAL "pyopenvdb")
+-    set(_OPENVDB_ORIG_CMAKE_FIND_LIBRARY_PREFIXES ${CMAKE_FIND_LIBRARY_PREFIXES})
+-    set(CMAKE_FIND_LIBRARY_PREFIXES ";lib") # find non-prefixed
+-    find_library(OpenVDB_${COMPONENT}_LIBRARY ${LIB_NAME}
+-      ${_FIND_OPENVDB_ADDITIONAL_OPTIONS}
+-      PATHS ${_VDB_COMPONENT_SEARCH_DIRS}
+-      PATH_SUFFIXES ${OPENVDB_PYTHON_PATH_SUFFIXES}
+-    )
+-    set(CMAKE_FIND_LIBRARY_PREFIXES ${_OPENVDB_ORIG_CMAKE_FIND_LIBRARY_PREFIXES})
+-  elseif(${COMPONENT} STREQUAL "openvdb" OR
+-         ${COMPONENT} STREQUAL "openvdb_houdini")
+-    find_library(OpenVDB_${COMPONENT}_LIBRARY ${LIB_NAME}
+-      ${_FIND_OPENVDB_ADDITIONAL_OPTIONS}
+-      PATHS ${_VDB_COMPONENT_SEARCH_DIRS}
+-      PATH_SUFFIXES ${OPENVDB_LIB_PATH_SUFFIXES}
+-    )
+-  elseif(${COMPONENT} STREQUAL "openvdb_je")
+-    # alias to the result of openvdb which should be handled first
+-    set(OpenVDB_${COMPONENT}_LIBRARY ${OpenVDB_openvdb_LIBRARY})
+-  endif()
+-
+-  list(APPEND OpenVDB_LIB_COMPONENTS ${OpenVDB_${COMPONENT}_LIBRARY})
+-  if(OpenVDB_${COMPONENT}_LIBRARY)
+-    set(OpenVDB_${COMPONENT}_FOUND TRUE)
+-  else()
+-    set(OpenVDB_${COMPONENT}_FOUND FALSE)
+-  endif()
+-  unset(_VDB_COMPONENT_SEARCH_DIRS)
+-endforeach()
+-
+-unset(OPENVDB_PYTHON_PATH_SUFFIXES)
+-unset(OPENVDB_LIB_PATH_SUFFIXES)
+-
+-# Reset library suffix
+-
+-set(CMAKE_FIND_LIBRARY_SUFFIXES ${_OPENVDB_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES})
+-unset(_OPENVDB_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES)
+-
+-# ------------------------------------------------------------------------
+-#  Cache and set OPENVDB_FOUND
+-# ------------------------------------------------------------------------
+-
+-include(FindPackageHandleStandardArgs)
+-find_package_handle_standard_args(OpenVDB
+-  FOUND_VAR OpenVDB_FOUND
+-  REQUIRED_VARS
+-    OpenVDB_INCLUDE_DIR
+-    OpenVDB_LIB_COMPONENTS
+-  VERSION_VAR OpenVDB_VERSION
+-  HANDLE_COMPONENTS
+-)
+-
+-# ------------------------------------------------------------------------
+-#  Determine ABI number
+-# ------------------------------------------------------------------------
+-
+-# Set the ABI number the library was built against. Uses vdb_print
+-
+-if(_OPENVDB_INSTALL)
+-  OPENVDB_ABI_VERSION_FROM_PRINT(
+-    "${_OPENVDB_INSTALL}/bin/vdb_print"
+-    ABI OpenVDB_ABI
+-  )
+-else()
+-  # Try and find vdb_print from the include path
+-  OPENVDB_ABI_VERSION_FROM_PRINT(
+-    "${OpenVDB_INCLUDE_DIR}/../bin/vdb_print"
+-    ABI OpenVDB_ABI
+-  )
+-endif()
+-
+-if(NOT OpenVDB_FIND_QUIET)
+-  if(NOT OpenVDB_ABI)
+-    message(WARNING "Unable to determine OpenVDB ABI version from OpenVDB "
+-      "installation. The library major version \"${OpenVDB_MAJOR_VERSION}\" "
+-      "will be inferred. If this is not correct, use "
+-      "add_definitions(-DOPENVDB_ABI_VERSION_NUMBER=N)"
+-    )
+-  else()
+-    message(STATUS "OpenVDB ABI Version: ${OpenVDB_ABI}")
+-  endif()
+-endif()
+-
+-# ------------------------------------------------------------------------
+-#  Handle OpenVDB dependencies and interface settings
+-# ------------------------------------------------------------------------
+-
+-# Handle openvdb_houdini first to configure search paths
+-
+-if(openvdb_houdini IN_LIST OpenVDB_FIND_COMPONENTS)
+-  include(OpenVDBHoudiniSetup)
+-endif()
+-
+-# Add standard dependencies
+-
+-find_package(IlmBase REQUIRED COMPONENTS Half)
+-find_package(TBB REQUIRED COMPONENTS tbb)
+-find_package(ZLIB REQUIRED)
+-
+-if(NOT OPENVDB_USE_STATIC_LIBS AND NOT Boost_USE_STATIC_LIBS)
+-  # @note  Both of these must be set for Boost 1.70 (VFX2020) to link against
+-  #        boost shared libraries (more specifically libraries built with -fPIC).
+-  #        http://boost.2283326.n4.nabble.com/CMake-config-scripts-broken-in-1-70-td4708957.html
+-  #        https://github.com/boostorg/boost_install/commit/160c7cb2b2c720e74463865ef0454d4c4cd9ae7c
+-  set(BUILD_SHARED_LIBS ON)
+-  set(Boost_USE_STATIC_LIBS OFF)
+-endif()
+-
+-find_package(Boost REQUIRED COMPONENTS iostreams system)
+-
+-# Add deps for pyopenvdb
+-# @todo track for numpy
+-
+-if(pyopenvdb IN_LIST OpenVDB_FIND_COMPONENTS)
+-  find_package(PythonLibs REQUIRED)
+-
+-  # Boost python handling - try and find both python and pythonXx (version suffixed).
+-  # Prioritize the version suffixed library, failing if neither exist.
+-
+-  find_package(Boost ${MINIMUM_BOOST_VERSION}
+-    QUIET COMPONENTS python${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}
+-  )
+-
+-  if(TARGET Boost::python${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR})
+-    set(BOOST_PYTHON_LIB "python${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}")
+-    message(STATUS "Found boost_python${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}")
+-  else()
+-    find_package(Boost ${MINIMUM_BOOST_VERSION} QUIET COMPONENTS python)
+-    if(TARGET Boost::python)
+-      set(BOOST_PYTHON_LIB "python")
+-      message(STATUS "Found non-suffixed boost_python, assuming to be python version "
+-        "\"${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}\" compatible"
+-      )
+-    else()
+-      message(FATAL_ERROR "Unable to find boost_python or "
+-        "boost_python${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}."
+-      )
+-    endif()
+-  endif()
+-endif()
+-
+-# As the way we resolve optional libraries relies on library file names, use
+-# the configuration options from the main CMakeLists.txt to allow users
+-# to manually identify the requirements of OpenVDB builds if they know them.
+-set(OpenVDB_USES_BLOSC ${USE_BLOSC})
+-set(OpenVDB_USES_LOG4CPLUS ${USE_LOG4CPLUS})
+-set(OpenVDB_USES_EXR ${USE_EXR})
+-set(OpenVDB_DEFINITIONS)
+-
+-if(WIN32)
+-  list(APPEND OpenVDB_DEFINITIONS _WIN32)
+-  list(APPEND OpenVDB_DEFINITIONS NOMINMAX)
+-endif()
+-
+-if(NOT OPENVDB_USE_STATIC_LIBS)
+-  if(WIN32)
+-    list(APPEND OpenVDB_DEFINITIONS OPENVDB_DLL)
+-  endif()
+-
+-  # Use GetPrerequisites to see which libraries this OpenVDB lib has linked to
+-  # which we can query for optional deps. This basically runs ldd/otoll/objdump
+-  # etc to track deps. We could use a vdb_config binary tools here to improve
+-  # this process
+-  include(GetPrerequisites)
+-
+-  set(_EXCLUDE_SYSTEM_PREREQUISITES 1)
+-  set(_RECURSE_PREREQUISITES 0)
+-  set(_OPENVDB_PREREQUISITE_LIST)
+-
+-  get_prerequisites(${OpenVDB_openvdb_LIBRARY}
+-    _OPENVDB_PREREQUISITE_LIST
+-    ${_EXCLUDE_SYSTEM_PREREQUISITES}
+-    ${_RECURSE_PREREQUISITES}
+-    ""
+-    "${SYSTEM_LIBRARY_PATHS}"
+-  )
+-
+-  unset(_EXCLUDE_SYSTEM_PREREQUISITES)
+-  unset(_RECURSE_PREREQUISITES)
+-
+-  # Search for optional dependencies
+-  foreach(PREREQUISITE ${_OPENVDB_PREREQUISITE_LIST})
+-    set(_HAS_DEP)
+-    get_filename_component(PREREQUISITE ${PREREQUISITE} NAME)
+-
+-    string(FIND ${PREREQUISITE} "blosc" _HAS_DEP)
+-    if(NOT ${_HAS_DEP} EQUAL -1)
+-      set(OpenVDB_USES_BLOSC ON)
+-    endif()
+-
+-    string(FIND ${PREREQUISITE} "log4cplus" _HAS_DEP)
+-    if(NOT ${_HAS_DEP} EQUAL -1)
+-      set(OpenVDB_USES_LOG4CPLUS ON)
+-    endif()
+-
+-    string(FIND ${PREREQUISITE} "IlmImf" _HAS_DEP)
+-    if(NOT ${_HAS_DEP} EQUAL -1)
+-      set(OpenVDB_USES_EXR ON)
+-    endif()
+-  endforeach()
+-
+-  unset(_OPENVDB_PREREQUISITE_LIST)
+-  unset(_HAS_DEP)
+-endif()
+-
+-if(OpenVDB_USES_BLOSC)
+-  find_package(Blosc REQUIRED)
+-endif()
+-
+-if(OpenVDB_USES_LOG4CPLUS)
+-  find_package(Log4cplus REQUIRED)
+-endif()
+-
+-if(OpenVDB_USES_EXR)
+-  find_package(IlmBase REQUIRED)
+-  find_package(OpenEXR REQUIRED)
+-endif()
+-
+-if(UNIX)
+-  find_package(Threads REQUIRED)
+-endif()
+-
+-if(WIN32)
+-  # @note OPENVDB_OPENEXR_STATICLIB is old functionality from the makefiles
+-  #       used in PlatformConfig.h to configure EXR exports. Once this file
+-  #       is completely removed, this define can be too
+-  get_target_property(ILMBASE_LIB_TYPE IlmBase::Half TYPE)
+-  if(OPENEXR_USE_STATIC_LIBS OR (${ILMBASE_LIB_TYPE} STREQUAL STATIC_LIBRARY))
+-    list(APPEND OpenVDB_DEFINITIONS OPENVDB_OPENEXR_STATICLIB)
+-  endif()
+-endif()
+-
+-# Set deps. Note that the order here is important. If we're building against
+-# Houdini 17.5 we must include OpenEXR and IlmBase deps first to ensure the
+-# users chosen namespaced headers are correctly prioritized. Otherwise other
+-# include paths from shared installs (including houdini) may pull in the wrong
+-# headers
+-
+-set(_OPENVDB_VISIBLE_DEPENDENCIES
+-  Boost::iostreams
+-  Boost::system
+-  IlmBase::Half
+-)
+-
+-if(OpenVDB_ABI)
+-  list(APPEND OpenVDB_DEFINITIONS OPENVDB_ABI_VERSION_NUMBER=${OpenVDB_ABI})
+-endif()
+-
+-if(OpenVDB_USES_EXR)
+-  list(APPEND _OPENVDB_VISIBLE_DEPENDENCIES
+-    IlmBase::IlmThread
+-    IlmBase::Iex
+-    IlmBase::Imath
+-    OpenEXR::IlmImf
+-  )
+-  list(APPEND OpenVDB_DEFINITIONS OPENVDB_TOOLS_RAYTRACER_USE_EXR)
+-endif()
+-
+-if(OpenVDB_USES_LOG4CPLUS)
+-  list(APPEND _OPENVDB_VISIBLE_DEPENDENCIES Log4cplus::log4cplus)
+-  list(APPEND OpenVDB_DEFINITIONS OPENVDB_USE_LOG4CPLUS)
+-endif()
+-
+-list(APPEND _OPENVDB_VISIBLE_DEPENDENCIES
+-  TBB::tbb
+-)
+-if(UNIX)
+-  list(APPEND _OPENVDB_VISIBLE_DEPENDENCIES
+-    Threads::Threads
+-  )
+-endif()
+-
+-set(_OPENVDB_HIDDEN_DEPENDENCIES)
+-
+-if(NOT OPENVDB_USE_STATIC_LIBS)
+-  if(OpenVDB_USES_BLOSC)
+-    list(APPEND _OPENVDB_HIDDEN_DEPENDENCIES Blosc::blosc)
+-  endif()
+-
+-  list(APPEND _OPENVDB_HIDDEN_DEPENDENCIES ZLIB::ZLIB)
+-endif()
+-
+-if(openvdb_je IN_LIST OpenVDB_FIND_COMPONENTS)
+-  find_package(Jemalloc REQUIRED)
+-endif()
+-
+-# ------------------------------------------------------------------------
+-#  Configure imported targets
+-# ------------------------------------------------------------------------
+-
+-set(OpenVDB_LIBRARIES ${OpenVDB_LIB_COMPONENTS})
+-set(OpenVDB_INCLUDE_DIRS ${OpenVDB_INCLUDE_DIR})
+-
+-set(OpenVDB_LIBRARY_DIRS "")
+-foreach(LIB ${OpenVDB_LIB_COMPONENTS})
+-  get_filename_component(_OPENVDB_LIBDIR ${LIB} DIRECTORY)
+-  list(APPEND OpenVDB_LIBRARY_DIRS ${_OPENVDB_LIBDIR})
+-endforeach()
+-list(REMOVE_DUPLICATES OpenVDB_LIBRARY_DIRS)
+-
+-# OpenVDB::openvdb
+-
+-if(NOT TARGET OpenVDB::openvdb)
+-  set(OPENVDB_openvdb_LIB_TYPE UNKNOWN)
+-  if(OPENVDB_USE_STATIC_LIBS)
+-    set(OPENVDB_openvdb_LIB_TYPE STATIC)
+-  elseif(UNIX)
+-    get_filename_component(_OPENVDB_openvdb_EXT
+-      ${OpenVDB_openvdb_LIBRARY} EXT)
+-    if(_OPENVDB_openvdb_EXT STREQUAL ".a")
+-      set(OPENVDB_openvdb_LIB_TYPE STATIC)
+-    elseif(_OPENVDB_openvdb_EXT STREQUAL ".so" OR
+-           _OPENVDB_openvdb_EXT STREQUAL ".dylib")
+-      set(OPENVDB_openvdb_LIB_TYPE SHARED)
+-    endif()
+-  endif()
+-
+-  add_library(OpenVDB::openvdb ${OPENVDB_openvdb_LIB_TYPE} IMPORTED)
+-  set_target_properties(OpenVDB::openvdb PROPERTIES
+-    IMPORTED_LOCATION "${OpenVDB_openvdb_LIBRARY}"
+-    INTERFACE_COMPILE_OPTIONS "${PC_OpenVDB_CFLAGS_OTHER}"
+-    INTERFACE_COMPILE_DEFINITIONS "${OpenVDB_DEFINITIONS}"
+-    INTERFACE_INCLUDE_DIRECTORIES "${OpenVDB_INCLUDE_DIR}"
+-    IMPORTED_LINK_DEPENDENT_LIBRARIES "${_OPENVDB_HIDDEN_DEPENDENCIES}" # non visible deps
+-    INTERFACE_LINK_LIBRARIES "${_OPENVDB_VISIBLE_DEPENDENCIES}" # visible deps (headers)
+-    INTERFACE_COMPILE_FEATURES cxx_std_14
+-  )
+-endif()
+-
+-# OpenVDB::openvdb_je
+-
+-if(OpenVDB_openvdb_je_LIBRARY)
+-  if(NOT TARGET OpenVDB::openvdb_je)
+-    add_library(OpenVDB::openvdb_je INTERFACE IMPORTED)
+-    target_link_libraries(OpenVDB::openvdb_je INTERFACE OpenVDB::openvdb)
+-    target_link_libraries(OpenVDB::openvdb_je INTERFACE Jemalloc::jemalloc)
+-  endif()
+-endif()
+-
+-# OpenVDB::pyopenvdb
+-
+-if(OpenVDB_pyopenvdb_LIBRARY)
+-  if(NOT TARGET OpenVDB::pyopenvdb)
+-    add_library(OpenVDB::pyopenvdb MODULE IMPORTED)
+-    set_target_properties(OpenVDB::pyopenvdb PROPERTIES
+-      IMPORTED_LOCATION "${OpenVDB_pyopenvdb_LIBRARY}"
+-      INTERFACE_INCLUDE_DIRECTORIES "${OpenVDB_pyopenvdb_INCLUDE_DIR};${PYTHON_INCLUDE_DIR}"
+-      INTERFACE_LINK_LIBRARIES "OpenVDB::openvdb;Boost::${BOOST_PYTHON_LIB};${PYTHON_LIBRARIES}"
+-      INTERFACE_COMPILE_FEATURES cxx_std_14
+-   )
+-  endif()
+-endif()
+-
+-# OpenVDB::openvdb_houdini
+-
+-if(OpenVDB_openvdb_houdini_LIBRARY)
+-  if(NOT TARGET OpenVDB::openvdb_houdini)
+-    add_library(OpenVDB::openvdb_houdini SHARED IMPORTED)
+-    set_target_properties(OpenVDB::openvdb_houdini PROPERTIES
+-      IMPORTED_LOCATION "${OpenVDB_openvdb_houdini_LIBRARY}"
+-      INTERFACE_INCLUDE_DIRECTORIES "${OpenVDB_openvdb_houdini_INCLUDE_DIR}"
+-      INTERFACE_LINK_LIBRARIES "OpenVDB::openvdb;Houdini"
+-      INTERFACE_COMPILE_FEATURES cxx_std_14
+-   )
+-  endif()
+-endif()
+-
+-unset(_OPENVDB_VISIBLE_DEPENDENCIES)
+-unset(_OPENVDB_HIDDEN_DEPENDENCIES)
+diff -Naur a/cmake/FindTBB.cmake b/cmake/FindTBB.cmake
+--- a/cmake/FindTBB.cmake	2020-08-13 12:15:58.000000000 -0700
++++ b/cmake/FindTBB.cmake	1969-12-31 16:00:00.000000000 -0800
+@@ -1,320 +0,0 @@
+-# Copyright Contributors to the OpenVDB Project
+-# SPDX-License-Identifier: MPL-2.0
+-#
+-#[=======================================================================[.rst:
+-
+-FindTBB
+--------
+-
+-Find Tbb include dirs and libraries
+-
+-Use this module by invoking find_package with the form::
+-
+-  find_package(TBB
+-    [version] [EXACT]      # Minimum or EXACT version
+-    [REQUIRED]             # Fail with error if Tbb is not found
+-    [COMPONENTS <libs>...] # Tbb libraries by their canonical name
+-                           # e.g. "tbb" for "libtbb"
+-    )
+-
+-IMPORTED Targets
+-^^^^^^^^^^^^^^^^
+-
+-``TBB::tbb``
+-  The tbb library target.
+-``TBB::tbbmalloc``
+-  The tbbmalloc library target.
+-``TBB::tbbmalloc_proxy``
+-  The tbbmalloc_proxy library target.
+-
+-Result Variables
+-^^^^^^^^^^^^^^^^
+-
+-This will define the following variables:
+-
+-``Tbb_FOUND``
+-  True if the system has the Tbb library.
+-``Tbb_VERSION``
+-  The version of the Tbb library which was found.
+-``Tbb_INCLUDE_DIRS``
+-  Include directories needed to use Tbb.
+-``Tbb_LIBRARIES``
+-  Libraries needed to link to Tbb.
+-``Tbb_LIBRARY_DIRS``
+-  Tbb library directories.
+-``TBB_{COMPONENT}_FOUND``
+-  True if the system has the named TBB component.
+-
+-Cache Variables
+-^^^^^^^^^^^^^^^
+-
+-The following cache variables may also be set:
+-
+-``Tbb_INCLUDE_DIR``
+-  The directory containing ``tbb/tbb_stddef.h``.
+-``Tbb_{COMPONENT}_LIBRARY``
+-  Individual component libraries for Tbb
+-
+-Hints
+-^^^^^
+-
+-Instead of explicitly setting the cache variables, the following variables
+-may be provided to tell this module where to look.
+-
+-``TBB_ROOT``
+-  Preferred installation prefix.
+-``TBB_INCLUDEDIR``
+-  Preferred include directory e.g. <prefix>/include
+-``TBB_LIBRARYDIR``
+-  Preferred library directory e.g. <prefix>/lib
+-``SYSTEM_LIBRARY_PATHS``
+-  Global list of library paths intended to be searched by and find_xxx call
+-``TBB_USE_STATIC_LIBS``
+-  Only search for static tbb libraries
+-``DISABLE_CMAKE_SEARCH_PATHS``
+-  Disable CMakes default search paths for find_xxx calls in this module
+-
+-#]=======================================================================]
+-
+-cmake_minimum_required(VERSION 3.3)
+-include(GNUInstallDirs)
+-
+-# Monitoring <PackageName>_ROOT variables
+-if(POLICY CMP0074)
+-  cmake_policy(SET CMP0074 NEW)
+-endif()
+-
+-mark_as_advanced(
+-  Tbb_INCLUDE_DIR
+-  Tbb_LIBRARY
+-)
+-
+-set(_FIND_TBB_ADDITIONAL_OPTIONS "")
+-if(DISABLE_CMAKE_SEARCH_PATHS)
+-  set(_FIND_TBB_ADDITIONAL_OPTIONS NO_DEFAULT_PATH)
+-endif()
+-
+-set(_TBB_COMPONENT_LIST
+-  tbb
+-  tbbmalloc
+-  tbbmalloc_proxy
+-)
+-
+-if(TBB_FIND_COMPONENTS)
+-  set(_TBB_COMPONENTS_PROVIDED TRUE)
+-  set(_IGNORED_COMPONENTS "")
+-  foreach(COMPONENT ${TBB_FIND_COMPONENTS})
+-    if(NOT ${COMPONENT} IN_LIST _TBB_COMPONENT_LIST)
+-      list(APPEND _IGNORED_COMPONENTS ${COMPONENT})
+-    endif()
+-  endforeach()
+-
+-  if(_IGNORED_COMPONENTS)
+-    message(STATUS "Ignoring unknown components of TBB:")
+-    foreach(COMPONENT ${_IGNORED_COMPONENTS})
+-      message(STATUS "  ${COMPONENT}")
+-    endforeach()
+-    list(REMOVE_ITEM TBB_FIND_COMPONENTS ${_IGNORED_COMPONENTS})
+-  endif()
+-else()
+-  set(_TBB_COMPONENTS_PROVIDED FALSE)
+-  set(TBB_FIND_COMPONENTS ${_TBB_COMPONENT_LIST})
+-endif()
+-
+-if(TBB_ROOT)
+-  set(_TBB_ROOT ${TBB_ROOT})
+-elseif(DEFINED ENV{TBB_ROOT})
+-  set(_TBB_ROOT $ENV{TBB_ROOT})
+-endif()
+-
+-# Additionally try and use pkconfig to find Tbb
+-if(USE_PKGCONFIG)
+-  if(NOT DEFINED PKG_CONFIG_FOUND)
+-    find_package(PkgConfig)
+-  endif()
+-  pkg_check_modules(PC_Tbb QUIET tbb)
+-endif()
+-
+-# ------------------------------------------------------------------------
+-#  Search for tbb include DIR
+-# ------------------------------------------------------------------------
+-
+-set(_TBB_INCLUDE_SEARCH_DIRS "")
+-list(APPEND _TBB_INCLUDE_SEARCH_DIRS
+-  ${TBB_INCLUDEDIR}
+-  ${_TBB_ROOT}
+-  ${PC_Tbb_INCLUDE_DIRS}
+-  ${SYSTEM_LIBRARY_PATHS}
+-)
+-
+-# Look for a standard tbb header file.
+-find_path(Tbb_INCLUDE_DIR tbb/tbb_stddef.h
+-  ${_FIND_TBB_ADDITIONAL_OPTIONS}
+-  PATHS ${_TBB_INCLUDE_SEARCH_DIRS}
+-  PATH_SUFFIXES ${CMAKE_INSTALL_INCLUDEDIR} include
+-)
+-
+-if(EXISTS "${Tbb_INCLUDE_DIR}/tbb/tbb_stddef.h")
+-  file(STRINGS "${Tbb_INCLUDE_DIR}/tbb/tbb_stddef.h"
+-    _tbb_version_major_string REGEX "#define TBB_VERSION_MAJOR "
+-  )
+-  string(REGEX REPLACE "#define TBB_VERSION_MAJOR" ""
+-    _tbb_version_major_string "${_tbb_version_major_string}"
+-  )
+-  string(STRIP "${_tbb_version_major_string}" Tbb_VERSION_MAJOR)
+-
+-  file(STRINGS "${Tbb_INCLUDE_DIR}/tbb/tbb_stddef.h"
+-     _tbb_version_minor_string REGEX "#define TBB_VERSION_MINOR "
+-  )
+-  string(REGEX REPLACE "#define TBB_VERSION_MINOR" ""
+-    _tbb_version_minor_string "${_tbb_version_minor_string}"
+-  )
+-  string(STRIP "${_tbb_version_minor_string}" Tbb_VERSION_MINOR)
+-
+-  unset(_tbb_version_major_string)
+-  unset(_tbb_version_minor_string)
+-
+-  set(Tbb_VERSION ${Tbb_VERSION_MAJOR}.${Tbb_VERSION_MINOR})
+-endif()
+-
+-# ------------------------------------------------------------------------
+-#  Search for TBB lib DIR
+-# ------------------------------------------------------------------------
+-
+-set(_TBB_LIBRARYDIR_SEARCH_DIRS "")
+-
+-# Append to _TBB_LIBRARYDIR_SEARCH_DIRS in priority order
+-
+-set(_TBB_LIBRARYDIR_SEARCH_DIRS "")
+-list(APPEND _TBB_LIBRARYDIR_SEARCH_DIRS
+-  ${TBB_LIBRARYDIR}
+-  ${_TBB_ROOT}
+-  ${PC_Tbb_LIBRARY_DIRS}
+-  ${SYSTEM_LIBRARY_PATHS}
+-)
+-
+-# Library suffix handling
+-
+-set(_TBB_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
+-
+-if(WIN32)
+-  if(TBB_USE_STATIC_LIBS)
+-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".lib")
+-  endif()
+-else()
+-  if(TBB_USE_STATIC_LIBS)
+-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+-  endif()
+-endif()
+-
+-set(Tbb_LIB_COMPONENTS "")
+-
+-foreach(COMPONENT ${TBB_FIND_COMPONENTS})
+-  find_library(Tbb_${COMPONENT}_LIBRARY ${COMPONENT}
+-    ${_FIND_TBB_ADDITIONAL_OPTIONS}
+-    PATHS ${_TBB_LIBRARYDIR_SEARCH_DIRS}
+-    PATH_SUFFIXES ${CMAKE_INSTALL_LIBDIR} lib64 lib
+-  )
+-
+-  # On Unix, TBB sometimes uses linker scripts instead of symlinks, so parse the linker script
+-  # and correct the library name if so
+-  if(UNIX AND EXISTS ${Tbb_${COMPONENT}_LIBRARY})
+-    # Ignore files where the first four bytes equals the ELF magic number
+-    file(READ ${Tbb_${COMPONENT}_LIBRARY} Tbb_${COMPONENT}_HEX OFFSET 0 LIMIT 4 HEX)
+-    if(NOT ${Tbb_${COMPONENT}_HEX} STREQUAL "7f454c46")
+-      # Read the first 1024 bytes of the library and match against an "INPUT (file)" regex
+-      file(READ ${Tbb_${COMPONENT}_LIBRARY} Tbb_${COMPONENT}_ASCII OFFSET 0 LIMIT 1024)
+-      if("${Tbb_${COMPONENT}_ASCII}" MATCHES "INPUT \\(([^(]+)\\)")
+-        # Extract the directory and apply the matched text (in brackets)
+-        get_filename_component(Tbb_${COMPONENT}_DIR "${Tbb_${COMPONENT}_LIBRARY}" DIRECTORY)
+-        set(Tbb_${COMPONENT}_LIBRARY "${Tbb_${COMPONENT}_DIR}/${CMAKE_MATCH_1}")
+-      endif()
+-    endif()
+-  endif()
+-
+-  list(APPEND Tbb_LIB_COMPONENTS ${Tbb_${COMPONENT}_LIBRARY})
+-
+-  if(Tbb_${COMPONENT}_LIBRARY)
+-    set(TBB_${COMPONENT}_FOUND TRUE)
+-  else()
+-    set(TBB_${COMPONENT}_FOUND FALSE)
+-  endif()
+-endforeach()
+-
+-# Reset library suffix
+-
+-set(CMAKE_FIND_LIBRARY_SUFFIXES ${_TBB_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES})
+-unset(_TBB_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES)
+-
+-# ------------------------------------------------------------------------
+-#  Cache and set TBB_FOUND
+-# ------------------------------------------------------------------------
+-
+-include(FindPackageHandleStandardArgs)
+-find_package_handle_standard_args(TBB
+-  FOUND_VAR TBB_FOUND
+-  REQUIRED_VARS
+-    Tbb_INCLUDE_DIR
+-    Tbb_LIB_COMPONENTS
+-  VERSION_VAR Tbb_VERSION
+-  HANDLE_COMPONENTS
+-)
+-
+-if(TBB_FOUND)
+-  set(Tbb_LIBRARIES ${Tbb_LIB_COMPONENTS})
+-  set(Tbb_INCLUDE_DIRS ${Tbb_INCLUDE_DIR})
+-
+-  set(Tbb_LIBRARY_DIRS "")
+-  foreach(LIB ${Tbb_LIB_COMPONENTS})
+-    get_filename_component(_TBB_LIBDIR ${LIB} DIRECTORY)
+-    list(APPEND Tbb_LIBRARY_DIRS ${_TBB_LIBDIR})
+-  endforeach()
+-  list(REMOVE_DUPLICATES Tbb_LIBRARY_DIRS)
+-
+-  # Configure imported targets
+-
+-  foreach(COMPONENT ${TBB_FIND_COMPONENTS})
+-    # Configure lib type. If XXX_USE_STATIC_LIBS, we always assume a static
+-    # lib is in use. If win32, we can't mark the import .libs as shared, so
+-    # these are always marked as UNKNOWN. Otherwise, infer from extension.
+-    set(TBB_${COMPONENT}_LIB_TYPE UNKNOWN)
+-    if(TBB_USE_STATIC_LIBS)
+-      set(TBB_${COMPONENT}_LIB_TYPE STATIC)
+-    elseif(UNIX)
+-      get_filename_component(_TBB_${COMPONENT}_EXT ${Tbb_${COMPONENT}_LIBRARY} EXT)
+-      if(_TBB_${COMPONENT}_EXT STREQUAL ".a")
+-        set(TBB_${COMPONENT}_LIB_TYPE STATIC)
+-      elseif(_TBB_${COMPONENT}_EXT STREQUAL ".so" OR
+-             _TBB_${COMPONENT}_EXT STREQUAL ".dylib")
+-        set(TBB_${COMPONENT}_LIB_TYPE SHARED)
+-      endif()
+-    endif()
+-
+-    set(Tbb_${COMPONENT}_DEFINITIONS)
+-
+-    # Add the TBB linking defines if the library is static on WIN32
+-    if(WIN32)
+-      if(${COMPONENT} STREQUAL tbb)
+-        if(Tbb_${COMPONENT}_LIB_TYPE STREQUAL STATIC)
+-          list(APPEND Tbb_${COMPONENT}_DEFINITIONS __TBB_NO_IMPLICIT_LINKAGE=1)
+-        endif()
+-      else() # tbbmalloc
+-        if(Tbb_${COMPONENT}_LIB_TYPE STREQUAL STATIC)
+-          list(APPEND Tbb_${COMPONENT}_DEFINITIONS __TBB_MALLOC_NO_IMPLICIT_LINKAGE=1)
+-        endif()
+-      endif()
+-    endif()
+-
+-    if(NOT TARGET TBB::${COMPONENT})
+-      add_library(TBB::${COMPONENT} ${TBB_${COMPONENT}_LIB_TYPE} IMPORTED)
+-      set_target_properties(TBB::${COMPONENT} PROPERTIES
+-        IMPORTED_LOCATION "${Tbb_${COMPONENT}_LIBRARY}"
+-        INTERFACE_COMPILE_OPTIONS "${PC_Tbb_CFLAGS_OTHER}"
+-        INTERFACE_COMPILE_DEFINITIONS "${Tbb_${COMPONENT}_DEFINITIONS}"
+-        INTERFACE_INCLUDE_DIRECTORIES "${Tbb_INCLUDE_DIR}"
+-      )
+-    endif()
+-  endforeach()
+-elseif(TBB_FIND_REQUIRED)
+-  message(FATAL_ERROR "Unable to find TBB")
+-endif()
+diff -Naur a/openvdb/CMakeLists.txt b/openvdb/CMakeLists.txt
+--- a/openvdb/CMakeLists.txt	2020-08-13 12:15:58.000000000 -0700
++++ b/openvdb/CMakeLists.txt	2021-04-20 01:05:14.032625600 -0700
+@@ -48,74 +48,83 @@
+ 
+ # Collect and configure lib dependencies
+ 
+-if(USE_EXR)
+-  find_package(IlmBase ${MINIMUM_ILMBASE_VERSION} REQUIRED)
+-  find_package(OpenEXR ${MINIMUM_OPENEXR_VERSION} REQUIRED)
+-  if(OPENVDB_FUTURE_DEPRECATION AND FUTURE_MINIMUM_OPENEXR_VERSION)
+-    if(${OpenEXR_VERSION} VERSION_LESS FUTURE_MINIMUM_OPENEXR_VERSION)
+-      message(DEPRECATION "Support for OpenEXR versions < ${FUTURE_MINIMUM_OPENEXR_VERSION} "
+-        "is deprecated and will be removed.")
+-    endif()
+-  endif()
+-else()
+-  find_package(IlmBase ${MINIMUM_ILMBASE_VERSION} REQUIRED COMPONENTS Half)
+-endif()
+-
+-if(OPENVDB_FUTURE_DEPRECATION AND FUTURE_MINIMUM_ILMBASE_VERSION)
+-  if(${IlmBase_VERSION} VERSION_LESS FUTURE_MINIMUM_ILMBASE_VERSION)
+-    message(DEPRECATION "Support for IlmBase versions < ${FUTURE_MINIMUM_ILMBASE_VERSION} "
+-      "is deprecated and will be removed.")
+-  endif()
+-endif()
+-
+-find_package(TBB ${MINIMUM_TBB_VERSION} REQUIRED COMPONENTS tbb)
+-
+-if(OPENVDB_FUTURE_DEPRECATION AND FUTURE_MINIMUM_TBB_VERSION)
+-  if(${Tbb_VERSION} VERSION_LESS FUTURE_MINIMUM_TBB_VERSION)
+-    message(DEPRECATION "Support for TBB versions < ${FUTURE_MINIMUM_TBB_VERSION} "
+-      "is deprecated and will be removed.")
+-  endif()
+-endif()
+-
+-find_package(ZLIB ${MINIMUM_ZLIB_VERSION} REQUIRED)
+-
+-if(USE_LOG4CPLUS)
+-  find_package(Log4cplus ${MINIMUM_LOG4CPLUS_VERSION} REQUIRED)
+-endif()
+-
+-if(USE_BLOSC)
+-  find_package(Blosc ${MINIMUM_BLOSC_VERSION} REQUIRED)
+-  if(Blosc_FOUND AND Blosc_VERSION VERSION_GREATER MINIMUM_BLOSC_VERSION)
+-    message(WARNING "The version of Blosc located is greater than ${MINIMUM_BLOSC_VERSION}. "
+-      "There have been reported issues with using later versions of Blosc with OpenVDB. "
+-      "OpenVDB has been tested fully against Blosc ${MINIMUM_BLOSC_VERSION}, it is "
+-      "recommended that you use this version where possible."
+-    )
+-  endif()
+-else()
+-  message(WARNING "Blosc support is disabled. It is strongly recommended to "
+-    "enable blosc for optimal builds of OpenVDB and to support compatible "
+-    "serialization of other OpenVDB installations."
+-  )
+-endif()
+-
+-if(OPENVDB_CORE_SHARED AND NOT Boost_USE_STATIC_LIBS)
+-  # @note  Both of these must be set for Boost 1.70 (VFX2020) to link against
+-  #        boost shared libraries (more specifically libraries built with -fPIC).
+-  #        http://boost.2283326.n4.nabble.com/CMake-config-scripts-broken-in-1-70-td4708957.html
+-  #        https://github.com/boostorg/boost_install/commit/160c7cb2b2c720e74463865ef0454d4c4cd9ae7c
+-  set(BUILD_SHARED_LIBS ON)
+-  set(Boost_USE_STATIC_LIBS OFF)
+-endif()
+-
+-find_package(Boost ${MINIMUM_BOOST_VERSION} REQUIRED COMPONENTS iostreams system)
+-
+-if(OPENVDB_FUTURE_DEPRECATION AND FUTURE_MINIMUM_BOOST_VERSION)
+-  if(${Boost_LIB_VERSION} VERSION_LESS FUTURE_MINIMUM_BOOST_VERSION)
+-    message(DEPRECATION "Support for Boost versions < ${FUTURE_MINIMUM_BOOST_VERSION} "
+-      "is deprecated and will be removed.")
+-  endif()
+-endif()
++# if(USE_EXR)
++#   #find_package(IlmBase ${MINIMUM_ILMBASE_VERSION} REQUIRED)
++#   find_package(OpenEXR ${MINIMUM_OPENEXR_VERSION} REQUIRED)
++#   if(OPENVDB_FUTURE_DEPRECATION AND FUTURE_MINIMUM_OPENEXR_VERSION)
++#     if(${OpenEXR_VERSION} VERSION_LESS FUTURE_MINIMUM_OPENEXR_VERSION)
++#       message(DEPRECATION "Support for OpenEXR versions < ${FUTURE_MINIMUM_OPENEXR_VERSION} "
++#         "is deprecated and will be removed.")
++#     endif()
++#   endif()
++# else()
++#   #find_package(IlmBase ${MINIMUM_ILMBASE_VERSION} REQUIRED COMPONENTS Half)
++# endif()
++find_package(OpenEXR REQUIRED)
++
++# if(OPENVDB_FUTURE_DEPRECATION AND FUTURE_MINIMUM_ILMBASE_VERSION)
++#   if(${IlmBase_VERSION} VERSION_LESS FUTURE_MINIMUM_ILMBASE_VERSION)
++#     message(DEPRECATION "Support for IlmBase versions < ${FUTURE_MINIMUM_ILMBASE_VERSION} "
++#       "is deprecated and will be removed.")
++#   endif()
++# endif()
++
++# find_package(TBB ${MINIMUM_TBB_VERSION} REQUIRED COMPONENTS tbb)
++
++# if(OPENVDB_FUTURE_DEPRECATION AND FUTURE_MINIMUM_TBB_VERSION)
++#   if(${Tbb_VERSION} VERSION_LESS FUTURE_MINIMUM_TBB_VERSION)
++#     message(DEPRECATION "Support for TBB versions < ${FUTURE_MINIMUM_TBB_VERSION} "
++#       "is deprecated and will be removed.")
++#   endif()
++# endif()
++find_package(TBB REQUIRED)
++
++#find_package(ZLIB ${MINIMUM_ZLIB_VERSION} REQUIRED)
++find_package(ZLIB REQUIRED)
++
++# if(USE_LOG4CPLUS)
++#   #find_package(Log4cplus ${MINIMUM_LOG4CPLUS_VERSION} REQUIRED)
++#   find_package(Log4cplus REQUIRED)
++# endif()
++if (USE_LOG4CPLUS)
++    find_package(log4cplus REQUIRED)
++endif()
++
++# if(USE_BLOSC)
++#   find_package(Blosc ${MINIMUM_BLOSC_VERSION} REQUIRED)
++#   if(Blosc_FOUND AND Blosc_VERSION VERSION_GREATER MINIMUM_BLOSC_VERSION)
++#     message(WARNING "The version of Blosc located is greater than ${MINIMUM_BLOSC_VERSION}. "
++#       "There have been reported issues with using later versions of Blosc with OpenVDB. "
++#       "OpenVDB has been tested fully against Blosc ${MINIMUM_BLOSC_VERSION}, it is "
++#       "recommended that you use this version where possible."
++#     )
++#   endif()
++# else()
++#   message(WARNING "Blosc support is disabled. It is strongly recommended to "
++#     "enable blosc for optimal builds of OpenVDB and to support compatible "
++#     "serialization of other OpenVDB installations."
++#   )
++# endif()
++find_package(c-blosc REQUIRED)
++
++# if(OPENVDB_CORE_SHARED AND NOT Boost_USE_STATIC_LIBS)
++#   # @note  Both of these must be set for Boost 1.70 (VFX2020) to link against
++#   #        boost shared libraries (more specifically libraries built with -fPIC).
++#   #        http://boost.2283326.n4.nabble.com/CMake-config-scripts-broken-in-1-70-td4708957.html
++#   #        https://github.com/boostorg/boost_install/commit/160c7cb2b2c720e74463865ef0454d4c4cd9ae7c
++#   set(BUILD_SHARED_LIBS ON)
++#   set(Boost_USE_STATIC_LIBS OFF)
++# endif()
++
++#find_package(Boost ${MINIMUM_BOOST_VERSION} REQUIRED COMPONENTS iostreams system)
++find_package(Boost REQUIRED)
++
++# if(OPENVDB_FUTURE_DEPRECATION AND FUTURE_MINIMUM_BOOST_VERSION)
++#   if(${Boost_LIB_VERSION} VERSION_LESS FUTURE_MINIMUM_BOOST_VERSION)
++#     message(DEPRECATION "Support for Boost versions < ${FUTURE_MINIMUM_BOOST_VERSION} "
++#       "is deprecated and will be removed.")
++#   endif()
++# endif()
+ 
+ if(UNIX)
+   find_package(Threads REQUIRED)
+@@ -128,46 +137,48 @@
+ # headers
+ 
+ set(OPENVDB_CORE_DEPENDENT_LIBS
+-  Boost::iostreams
+-  Boost::system
+-  IlmBase::Half
++  Boost::Boost
++  OpenEXR::OpenEXR
++  #Boost::iostreams
++  #Boost::system
++  #IlmBase::Half
+ )
+ 
+-if(WIN32)
+-  # Boost headers contain #pragma commands on Windows which causes Boost
+-  # libraries to be linked in automatically. Custom boost installations
+-  # may find that these naming conventions don't always match and can
+-  # cause linker errors. This option disables this feature of Boost. Note
+-  # -DBOOST_ALL_NO_LIB can also be provided manually.
+-  if(OPENVDB_DISABLE_BOOST_IMPLICIT_LINKING)
+-      list(APPEND OPENVDB_CORE_DEPENDENT_LIBS
+-        Boost::disable_autolinking  # add -DBOOST_ALL_NO_LIB
+-      )
+-  endif()
+-endif()
+-
+-if(USE_EXR)
+-  list(APPEND OPENVDB_CORE_DEPENDENT_LIBS
+-    IlmBase::IlmThread
+-    IlmBase::Iex
+-    IlmBase::Imath
+-    OpenEXR::IlmImf
+-  )
+-endif()
++# if(WIN32)
++#   # Boost headers contain #pragma commands on Windows which causes Boost
++#   # libraries to be linked in automatically. Custom boost installations
++#   # may find that these naming conventions don't always match and can
++#   # cause linker errors. This option disables this feature of Boost. Note
++#   # -DBOOST_ALL_NO_LIB can also be provided manually.
++#   if(OPENVDB_DISABLE_BOOST_IMPLICIT_LINKING)
++#       list(APPEND OPENVDB_CORE_DEPENDENT_LIBS
++#         Boost::disable_autolinking  # add -DBOOST_ALL_NO_LIB
++#       )
++#   endif()
++# endif()
++
++# if(USE_EXR)
++#   list(APPEND OPENVDB_CORE_DEPENDENT_LIBS
++#     IlmBase::IlmThread
++#     IlmBase::Iex
++#     IlmBase::Imath
++#     OpenEXR::IlmImf
++#   )
++# endif()
+ 
+ if(USE_LOG4CPLUS)
+-  list(APPEND OPENVDB_CORE_DEPENDENT_LIBS Log4cplus::log4cplus)
++  list(APPEND OPENVDB_CORE_DEPENDENT_LIBS log4cplus::log4cplus)
+ endif()
+ 
+ # @todo blosc and zlib should be hidden (privately linked in):
+ # See FindOpenVDB.cmake
+ 
+ if(USE_BLOSC)
+-  list(APPEND OPENVDB_CORE_DEPENDENT_LIBS Blosc::blosc)
++  list(APPEND OPENVDB_CORE_DEPENDENT_LIBS c-blosc::c-blosc)
+ endif()
+ 
+ list(APPEND OPENVDB_CORE_DEPENDENT_LIBS
+-  TBB::tbb
++  TBB::TBB
+   ZLIB::ZLIB
+ )
+ 
+@@ -179,12 +190,12 @@
+   list(APPEND OPENVDB_CORE_DEPENDENT_LIBS Jemalloc::jemalloc)
+ endif()
+ 
+-if(TARGET TBB::tbbmalloc AND TARGET TBB::tbbmalloc_proxy)
+-  list(APPEND OPENVDB_CORE_DEPENDENT_LIBS
+-    TBB::tbbmalloc
+-    TBB::tbbmalloc_proxy
+-  )
+-endif()
++# if(TARGET TBB::tbbmalloc AND TARGET TBB::tbbmalloc_proxy)
++#   list(APPEND OPENVDB_CORE_DEPENDENT_LIBS
++#     TBB::tbbmalloc
++#     TBB::tbbmalloc_proxy
++#   )
++# endif()
+ 
+ ##########################################################################
+ 
+@@ -405,10 +416,11 @@
+   # @note OPENVDB_OPENEXR_STATICLIB is old functionality from the makefiles
+   #       used in PlatformConfig.h to configure EXR exports. Once this file
+   #       is completely removed, this define can be too
+-  get_target_property(ILMBASE_LIB_TYPE IlmBase::Half TYPE)
+-  if(OPENEXR_USE_STATIC_LIBS OR (${ILMBASE_LIB_TYPE} STREQUAL STATIC_LIBRARY))
+-    list(APPEND OPENVDB_CORE_PUBLIC_DEFINES -DOPENVDB_OPENEXR_STATICLIB)
+-  endif()
++  # get_target_property(ILMBASE_LIB_TYPE IlmBase::Half TYPE)
++  # if(OPENEXR_USE_STATIC_LIBS OR (${ILMBASE_LIB_TYPE} STREQUAL STATIC_LIBRARY))
++  #   list(APPEND OPENVDB_CORE_PUBLIC_DEFINES -DOPENVDB_OPENEXR_STATICLIB)
++  # endif()
++  list(APPEND OPENVDB_CORE_PUBLIC_DEFINES -DOPENVDB_OPENEXR_STATICLIB)
+   list(APPEND OPENVDB_CORE_PUBLIC_DEFINES -D_WIN32 -DNOMINMAX)
+ endif()
+ if(USE_EXR)
