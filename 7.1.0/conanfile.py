@@ -26,11 +26,11 @@ class OpenVDBConan(ConanFile):
     exports_sources = ["CMakeLists.txt", "patches/*"]
 
     requires = (
-        "boost/1.74.0",
-        "openexr/2.5.3",
-        "c-blosc/1.20.1",
-        "tbb/2020.0",
-        "zlib/1.2.11"
+        "boost/[>=1.74.0]",
+        "openexr/[>=2.5.3 <3]",
+        "c-blosc/[>=1.20.1]",
+        "tbb/[>=2020.0]",
+        "zlib/[>=1.2.11]"
     )
 
     _cmake = None
