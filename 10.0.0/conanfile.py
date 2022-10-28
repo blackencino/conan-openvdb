@@ -78,12 +78,9 @@ class OpenVDBConan(ConanFile):
     def requirements(self):
         self.requires("boost/[>=1.80.0]")
         self.requires("onetbb/[>=2020.3]")
-        self.requires("openexr/[>=2.5.7]")  # required for IlmBase::Half
+        self.requires("openexr/2.5.7")  # required for IlmBase::Half
         if self.options.with_zlib:
             self.requires("zlib/[>=1.2.12]")
-        if self.options.with_exr:
-            # Not necessary now. Required for IlmBase::IlmImf
-            self.requires("openexr/[>=2.5.7]")
         if self.options.with_blosc:
             self.requires("c-blosc/[>=1.21.1]")
         if self.options.with_log4cplus:
