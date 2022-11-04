@@ -1,7 +1,7 @@
 sources:
   "9.0.0":
-    url: "https://gitlab-master.nvidia.com/alexandres/openvdb/-/archive/nanovdb-extrema/openvdb-nanovdb-extrema.tar.gz"
-    # sha256: "4283f61488def8eedf994bba21558e4d139290a69ffae31df7d5d78ac5013b92"
+    url: "https://github.com/blackencino/openvdb/archive/refs/heads/nanovdb-extrema.tar.gz"
+    sha256: "4283f61488def8eedf994bba21558e4d139290a69ffae31df7d5d78ac5013b92"
 
 patches:
   "9.0.0":

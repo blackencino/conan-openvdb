@@ -105,8 +105,8 @@ class OpenVDBConan(ConanFile):
         self._check_compilier_version()
 
     def source(self):
-        self.run(f"git clone -b nanovdb-extrema ssh://git@gitlab-master.nvidia.com:12051/alexandres/openvdb.git {self._source_subfolder}")
-        # tools.get(**self.conan_data["sources"][self.version], strip_root=True, destination=self._source_subfolder)
+        # self.run(f"git clone -b nanovdb-extrema ssh://git@gitlab-master.nvidia.com:12051/alexandres/openvdb.git {self._source_subfolder}")
+        tools.get(**self.conan_data["sources"][self.version], strip_root=True, destination=self._source_subfolder)
 
     def _patch_sources(self):
         for patch in self.conan_data.get("patches", {}).get(self.version, []):
