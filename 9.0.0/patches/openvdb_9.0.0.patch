@@ -1,0 +1,27 @@
+--- openvdb/openvdb/CMakeLists.txt	2022-06-06 09:13:12.378769400 -0400
++++ openvdb_9.0.0/openvdb/openvdb/CMakeLists.txt	2022-06-06 17:37:15.405534800 -0400
+@@ -129,10 +129,10 @@
+ 
+ find_package(TBB ${MINIMUM_TBB_VERSION} REQUIRED COMPONENTS tbb)
+ if(OPENVDB_FUTURE_DEPRECATION AND FUTURE_MINIMUM_TBB_VERSION)
+-  if(${Tbb_VERSION} VERSION_LESS FUTURE_MINIMUM_TBB_VERSION)
+-    message(DEPRECATION "Support for TBB versions < ${FUTURE_MINIMUM_TBB_VERSION} "
+-      "is deprecated and will be removed.")
+-  endif()
++#   if(${Tbb_VERSION} VERSION_LESS FUTURE_MINIMUM_TBB_VERSION)
++#     message(DEPRECATION "Support for TBB versions < ${FUTURE_MINIMUM_TBB_VERSION} "
++#       "is deprecated and will be removed.")
++#   endif()
+ endif()
+ 
+ if(USE_IMATH_HALF)
+@@ -617,7 +617,8 @@
+ if(WIN32)
+   if(USE_IMATH_HALF)
+     # @note OPENVDB_OPENEXR_STATICLIB is old functionality and should be removed
+-    if(ILMBASE_USE_STATIC_LIBS OR ("${ILMBASE_Half_LIB_TYPE}" STREQUAL STATIC))
++    # if(ILMBASE_USE_STATIC_LIBS OR ("${ILMBASE_Half_LIB_TYPE}" STREQUAL STATIC))
++    if(OPENEXR_USE_STATIC_LIBS)
+       list(APPEND OPENVDB_CORE_PUBLIC_DEFINES -DOPENVDB_OPENEXR_STATICLIB)
+     endif()
+   endif()
