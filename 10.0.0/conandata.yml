@@ -1,9 +1,0 @@
-sources:
-  "10.0.0":
-    url: "https://github.com/AcademySoftwareFoundation/openvdb/archive/refs/tags/v10.0.0.tar.gz"
-    sha256: "6d4f6b5ccd0f9d35a4886d9a51a98c97fa314f75bf9737c5121e91b706e2db70"
-
-patches:
-  "10.0.0":
-    - patch_file: "patches/openvdb_10.0.0.patch"
-      patch_description: "Fix undefined FUTURE_MINIMUM_TBB_VERSION, use OPENEXR_USE_STATIC_LIBS"

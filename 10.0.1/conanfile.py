@@ -20,7 +20,7 @@ required_conan_version = ">=1.53.0"
 
 class OpenVDBConan(ConanFile):
     name = "openvdb"
-    version = "10.0.0"
+    version = "10.0.1"
     description = (
         "OpenVDB is an open source C++ library comprising a novel hierarchical data"
         "structure and a large suite of tools for the efficient storage and "
@@ -123,15 +123,6 @@ class OpenVDBConan(ConanFile):
         )
 
     def _patch_sources(self):
-        # for patch in self.conan_data.get("patches", {}).get(self.version, []):
-        #    tools.patch(**patch)
-
-        #        patches = self.conan_data["patches"][self.version]
-        #        for p in patches:
-        #            patch_file = os.path.join(self.export_sources_folder, p["patch_file"])
-        #            print("patch_file = {}".format(patch_file))
-        #            patch(self, patch_file=patch_file)
-
         apply_conandata_patches(self)
 
         # Remove FindXXX files from OpenVDB. Let Conan do the job
@@ -169,11 +160,6 @@ if(OpenEXR_FOUND)
  endif()
  """
             )
-
-    #    def build(self):
-    #        self._patch_sources()
-    #        cmake = self._configure_cmake()
-    #        cmake.build()
 
     def generate(self):
         toolchain = CMakeToolchain(self)
