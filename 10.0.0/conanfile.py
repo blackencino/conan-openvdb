@@ -74,10 +74,10 @@ class OpenVDBConan(ConanFile):
     def configure(self):
         if self.options.shared:
             del self.options.fPIC
-    
+
     def requirements(self):
         self.requires("boost/[>=1.80.0]")
-        self.requires("onetbb/[>=2020.3]")
+        self.requires("onetbb/2020.3")
         self.requires("openexr/2.5.7")  # required for IlmBase::Half
         if self.options.with_zlib:
             self.requires("zlib/[>=1.2.12]")
@@ -91,25 +91,35 @@ class OpenVDBConan(ConanFile):
         version = tools.Version(self.settings.compiler.version)
         minimum_version = self._compilers_min_version.get(compiler, False)
         if minimum_version and version < minimum_version:
-            raise ConanInvalidConfiguration(f"{self.name} requires a {compiler} version greater than {minimum_version}")
+            raise ConanInvalidConfiguration(
+                f"{self.name} requires a {compiler} version greater than {minimum_version}"
+            )
 
     def validate(self):
         if self.settings.compiler.get_safe("cppstd"):
             tools.check_min_cppstd(self, 14)
         if self.settings.arch not in ("x86", "x86_64"):
             if self.options.simd:
-                raise ConanInvalidConfiguration("Only intel architectures support SSE4 or AVX.")
+                raise ConanInvalidConfiguration(
+                    "Only intel architectures support SSE4 or AVX."
+                )
         self._check_compilier_version()
 
     def source(self):
-        #self.run(f"git clone -b nanovdb-extrema ssh://git@gitlab-master.nvidia.com:12051/alexandres/openvdb.git {self._source_subfolder}")
-        tools.get(**self.conan_data["sources"][self.version], strip_root=True, destination=self._source_subfolder)
+        # self.run(f"git clone -b nanovdb-extrema ssh://git@gitlab-master.nvidia.com:12051/alexandres/openvdb.git {self._source_subfolder}")
+        tools.get(
+            **self.conan_data["sources"][self.version],
+            strip_root=True,
+            destination=self._source_subfolder,
+        )
 
     def _patch_sources(self):
         for patch in self.conan_data.get("patches", {}).get(self.version, []):
             tools.patch(**patch)
         # Remove FindXXX files from OpenVDB. Let Conan do the job
-        tools.remove_files_by_mask(os.path.join(self._source_subfolder, "cmake"), "Find*")
+        tools.remove_files_by_mask(
+            os.path.join(self._source_subfolder, "cmake"), "Find*"
+        )
         with open("FindBlosc.cmake", "w") as f:
             f.write(
                 """find_package(c-blosc)
@@ -185,7 +195,9 @@ if(OpenEXR_FOUND)
         cmake.definitions["OPENVDB_INSTALL_CMAKE_MODULES"] = False
 
         cmake.definitions["Boost_USE_STATIC_LIBS"] = not self.options["boost"].shared
-        cmake.definitions["OPENEXR_USE_STATIC_LIBS"] = not self.options["openexr"].shared
+        cmake.definitions["OPENEXR_USE_STATIC_LIBS"] = not self.options[
+            "openexr"
+        ].shared
 
         cmake.definitions["OPENVDB_DISABLE_BOOST_IMPLICIT_LINKING"] = True
 
@@ -214,11 +226,17 @@ if(OpenEXR_FOUND)
             self.cpp_info.components["openvdb-core"].defines.append("NOMINMAX")
 
         if not self.options["openexr"].shared:
-            self.cpp_info.components["openvdb-core"].defines.append("OPENVDB_OPENEXR_STATICLIB")
+            self.cpp_info.components["openvdb-core"].defines.append(
+                "OPENVDB_OPENEXR_STATICLIB"
+            )
         if self.options.with_exr:
-            self.cpp_info.components["openvdb-core"].defines.append("OPENVDB_TOOLS_RAYTRACER_USE_EXR")
+            self.cpp_info.components["openvdb-core"].defines.append(
+                "OPENVDB_TOOLS_RAYTRACER_USE_EXR"
+            )
         if self.options.with_log4cplus:
-            self.cpp_info.components["openvdb-core"].defines.append("OPENVDB_USE_LOG4CPLUS")
+            self.cpp_info.components["openvdb-core"].defines.append(
+                "OPENVDB_USE_LOG4CPLUS"
+            )
 
         self.cpp_info.components["openvdb-core"].requires = [
             "boost::iostreams",
@@ -227,14 +245,18 @@ if(OpenEXR_FOUND)
             "openexr::openexr",  # should be "openexr::Half",
         ]
         if self.settings.os == "Windows":
-            self.cpp_info.components["openvdb-core"].requires.append("boost::disable_autolinking")
+            self.cpp_info.components["openvdb-core"].requires.append(
+                "boost::disable_autolinking"
+            )
 
         if self.options.with_zlib:
             self.cpp_info.components["openvdb-core"].requires.append("zlib::zlib")
         if self.options.with_blosc:
             self.cpp_info.components["openvdb-core"].requires.append("c-blosc::c-blosc")
         if self.options.with_log4cplus:
-            self.cpp_info.components["openvdb-core"].requires.append("log4cplus::log4cplus")
+            self.cpp_info.components["openvdb-core"].requires.append(
+                "log4cplus::log4cplus"
+            )
 
         if self.settings.os in ("Linux", "FreeBSD"):
             self.cpp_info.components["openvdb-core"].system_libs = ["pthread"]
@@ -243,5 +265,9 @@ if(OpenEXR_FOUND)
         self.cpp_info.names["cmake_find_package"] = "OpenVDB"
         self.cpp_info.names["cmake_find_package_multi"] = "OpenVDB"
         self.cpp_info.components["openvdb-core"].names["cmake_find_package"] = "openvdb"
-        self.cpp_info.components["openvdb-core"].names["cmake_find_package_multi"] = "openvdb"
-        self.cpp_info.components["openvdb-core"].set_property("cmake_target_name", "OpenVDB::openvdb")
+        self.cpp_info.components["openvdb-core"].names[
+            "cmake_find_package_multi"
+        ] = "openvdb"
+        self.cpp_info.components["openvdb-core"].set_property(
+            "cmake_target_name", "OpenVDB::openvdb"
+        )
